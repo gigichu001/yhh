@@ -673,6 +673,7 @@
       <div class="cal-header">
         <button class="cal-nav" onclick="calNav(-1)">‹</button>
         <div class="cal-month" id="calMonthLabel"></div>
+        <button class="cal-nav" onclick="jumpToToday()" style="font-size:10px;font-weight:700;color:var(--accent);padding:4px 8px;">TODAY</button>
         <button class="cal-nav" onclick="calNav(1)">›</button>
       </div>
       <div class="cal-days-header">
@@ -1138,6 +1139,15 @@ function calNav(dir) {
   renderCal();
 }
 
+function jumpToToday() {
+  selectedDate = todayStr();
+  currentCalMonth = new Date();
+  renderCal();
+  updateCalLabel();
+  renderToday();
+  if (calOpen) toggleCal();
+}
+
 function renderCal() {
   const y = currentCalMonth.getFullYear();
   const m = currentCalMonth.getMonth();
@@ -1437,65 +1447,85 @@ function saveWeekModal() {
 
 function renderWeekTab() {
   const dates = getWeekDates();
-  const labels = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+  const dayLabels = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+  const today = todayStr();
 
-  // Compute deficit
+  // Only count days up to and including today (past days in the week)
+  const doneDates = dates.filter(d => d <= today);
+
   let totalIntake = 0, totalBurn = 0, totalWater = 0;
-  dates.forEach(d => {
+  doneDates.forEach(d => {
     const recs = STATE.records.filter(r => r.date === d);
     totalIntake += recs.filter(r => r.type === 'food').reduce((s,r) => s + r.kcal, 0);
     totalBurn += recs.filter(r => r.type === 'exercise').reduce((s,r) => s + r.kcal, 0);
     totalWater += recs.filter(r => r.type === 'water').reduce((s,r) => s + r.kcal, 0);
   });
-  const deficit = -(totalIntake - (STATE.fixed * dates.length + totalBurn));
+
+  // Deficit = (fixed × days elapsed + exercise burn) - food intake
+  // Positive = good (you burned more than you ate)
+  const daysElapsed = doneDates.length;
+  const deficit = (STATE.fixed * daysElapsed + totalBurn) - totalIntake;
 
   document.getElementById('weekAim').textContent = STATE.weekAim.toLocaleString();
-  document.getElementById('weekCurrent').textContent = deficit.toLocaleString();
+  document.getElementById('weekCurrent').textContent = (deficit >= 0 ? '+' : '') + deficit.toLocaleString();
+  document.getElementById('weekCurrent').style.color = deficit >= 0 ? 'var(--green)' : 'var(--red)';
   document.getElementById('weekFat').textContent = STATE.weekFat != null ? STATE.weekFat + '%' : '—%';
 
   document.getElementById('wsTotalIntake').textContent = totalIntake + ' kcal';
   document.getElementById('wsTotalBurn').textContent = totalBurn + ' kcal';
   document.getElementById('wsTotalWater').textContent = totalWater + ' ml';
-  document.getElementById('wsNetDeficit').textContent = deficit.toLocaleString() + ' kcal';
+  document.getElementById('wsNetDeficit').textContent = (deficit >= 0 ? '+' : '') + deficit.toLocaleString() + ' kcal';
+  document.getElementById('wsNetDeficit').style.color = deficit >= 0 ? 'var(--green)' : 'var(--red)';
 
-  // Chart data
-  const wtData = dates.map(d => STATE.weekWeights[d]?.wt || null);
-  const fatData = dates.map(d => STATE.weekWeights[d]?.fat || null);
-  
-  // Ideal weight: simple linear from first to end
+  // Chart: weight per day (logged manually), fat %, ideal line
+  const wtData = dates.map(d => STATE.weekWeights[d]?.wt ?? null);
+  const fatData = dates.map(d => STATE.weekWeights[d]?.fat ?? null);
+
+  // Ideal: linear from currentWt toward finalGoal over 90 days from start of week
   const startWt = STATE.currentWt;
   const endWt = STATE.finalGoal;
-  const idealData = startWt && endWt ? dates.map((_,i) => +(startWt - (startWt - endWt) * i / 90).toFixed(2)) : Array(7).fill(null);
+  const weekStart = dates[0];
+  const idealData = (startWt && endWt) ? dates.map((_,i) => {
+    return +(startWt - (startWt - endWt) * i / 90).toFixed(2);
+  }) : Array(7).fill(null);
+
+  // Build chart labels with date
+  const chartLabels = dates.map((d,i) => {
+    const dd = new Date(d+'T00:00:00');
+    return dayLabels[i] + ' ' + dd.getDate();
+  });
 
   if (weekChartInst) weekChartInst.destroy();
   const ctx = document.getElementById('weekChart').getContext('2d');
   weekChartInst = new Chart(ctx, {
     type: 'line',
     data: {
-      labels,
+      labels: chartLabels,
       datasets: [
         {
-          label: 'Weight',
+          label: 'Weight (kg)',
           data: wtData,
           borderColor: '#4a9eff',
-          backgroundColor: 'rgba(74,158,255,0.08)',
+          backgroundColor: 'rgba(74,158,255,0.07)',
           tension: 0.4,
-          pointBackgroundColor: '#4a9eff',
-          pointRadius: 4,
+          pointBackgroundColor: dates.map(d => d <= today ? '#4a9eff' : '#4a9eff44'),
+          pointRadius: dates.map(d => wtData[dates.indexOf(d)] !== null ? 5 : 3),
+          spanGaps: true,
           yAxisID: 'y'
         },
         {
           label: 'Fat %',
           data: fatData,
-          borderColor: '#ff8c4a',
-          backgroundColor: 'rgba(255,140,74,0.05)',
+          borderColor: '#c97a3a',
+          backgroundColor: 'transparent',
           tension: 0.4,
-          pointBackgroundColor: '#ff8c4a',
+          pointBackgroundColor: '#c97a3a',
           pointRadius: 4,
+          spanGaps: true,
           yAxisID: 'y1'
         },
         {
-          label: 'Ideal',
+          label: 'Ideal (kg)',
           data: idealData,
           borderColor: '#4ecf88',
           borderDash: [5,4],
@@ -1508,23 +1538,38 @@ function renderWeekTab() {
     },
     options: {
       responsive: true,
-      plugins: { legend: { display: false } },
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: ctx => {
+              if (ctx.parsed.y === null) return null;
+              const u = ctx.datasetIndex === 1 ? '%' : ' kg';
+              return ctx.dataset.label + ': ' + ctx.parsed.y + u;
+            }
+          }
+        }
+      },
       scales: {
-        x: { ticks: { color: '#6b6f76', font: { size: 10 } }, grid: { color: '#2a2c30' } },
-        y: { position:'left', ticks: { color: '#4a9eff', font: { size: 10 } }, grid: { color: '#2a2c3055' } },
-        y1: { position:'right', ticks: { color: '#ff8c4a', font: { size: 10 } }, grid: { display: false } }
+        x: { ticks: { color: '#7a6a56', font: { size: 10 } }, grid: { color: 'rgba(0,0,0,0.06)' } },
+        y: { position:'left', ticks: { color: '#4a9eff', font: { size: 10 } }, grid: { color: 'rgba(0,0,0,0.06)' }, title: { display: true, text: 'kg', color: '#4a9eff', font:{size:9} } },
+        y1: { position:'right', ticks: { color: '#c97a3a', font: { size: 10 } }, grid: { display: false }, title: { display: true, text: '%', color: '#c97a3a', font:{size:9} } }
       }
     }
   });
 
-  // Allow clicking chart to add weight for that day
+  // Tap on chart → log weight/fat for that day
   document.getElementById('weekChart').onclick = function(e) {
     const pts = weekChartInst.getElementsAtEventForMode(e, 'index', {intersect:false}, true);
     if (pts.length) {
       const idx = pts[0].index;
-      openWeekWeight(dates[idx], labels[idx]);
+      openWeekWeight(dates[idx], chartLabels[idx]);
     }
   };
+
+  // Render per-day weight log row below chart
+  renderWeekWeightRow(dates, chartLabels, today);
 }
 
 let weekWtDate = '';
@@ -1538,23 +1583,81 @@ function openWeekWeight(ds, label) {
   openModal('weekModal');
 }
 
-// Override save for weight mode
-const origSaveWeek = saveWeekModal;
+function openWeekFatLog(ds, label) {
+  weekWtDate = ds;
+  weekModalMode = 'dayfat';
+  document.getElementById('weekModalTitle').textContent = 'Log Fat % — ' + label;
+  document.getElementById('weekModalLabel').textContent = 'Body Fat %';
+  document.getElementById('weekModalInput').value = STATE.weekWeights[ds]?.fat || '';
+  document.getElementById('weekModalInput').step = '0.1';
+  openModal('weekModal');
+}
+
+// Override saveWeekModal to handle weight + dayfat modes
 window.saveWeekModal = function() {
+  const v = parseFloat(document.getElementById('weekModalInput').value);
   if (weekModalMode === 'weight') {
-    const v = parseFloat(document.getElementById('weekModalInput').value);
     if (!isNaN(v)) {
       if (!STATE.weekWeights[weekWtDate]) STATE.weekWeights[weekWtDate] = {};
       STATE.weekWeights[weekWtDate].wt = v;
-      STATE.currentWt = v; // update current
+      STATE.currentWt = v;
       save();
     }
     closeModal('weekModal');
     renderWeekTab();
     return;
   }
-  origSaveWeek();
+  if (weekModalMode === 'dayfat') {
+    if (!isNaN(v)) {
+      if (!STATE.weekWeights[weekWtDate]) STATE.weekWeights[weekWtDate] = {};
+      STATE.weekWeights[weekWtDate].fat = v;
+      STATE.weekFat = v;
+      save();
+    }
+    closeModal('weekModal');
+    renderWeekTab();
+    return;
+  }
+  // aim / fat modes
+  if (weekModalMode === 'aim') { STATE.weekAim = v || -2100; }
+  if (weekModalMode === 'fat') { STATE.weekFat = v; }
+  save();
+  closeModal('weekModal');
+  renderWeekTab();
 };
+
+function renderWeekWeightRow(dates, labels, today) {
+  // Remove old row if any
+  const old = document.getElementById('weekWeightRow');
+  if (old) old.remove();
+
+  const box = document.createElement('div');
+  box.id = 'weekWeightRow';
+  box.className = 'chart-box';
+  box.innerHTML = `<div class="chart-title">Log Weight & Fat % (tap to edit)</div>
+    <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin-top:4px;">
+      ${dates.map((d,i) => {
+        const wt = STATE.weekWeights[d]?.wt;
+        const fat = STATE.weekWeights[d]?.fat;
+        const isPast = d <= today;
+        const isToday = d === today;
+        return `<div style="
+          background:${isToday?'rgba(139,94,60,0.1)':isPast?'var(--surface2)':'var(--surface)'};
+          border:1px solid ${isToday?'var(--accent)':'var(--border)'};
+          border-radius:8px;padding:6px 4px;text-align:center;cursor:pointer;
+        " onclick="openWeekWeight('${d}','${labels[i]}')">
+          <div style="font-size:9px;color:var(--text-dim);margin-bottom:3px;">${labels[i]}</div>
+          <div style="font-family:var(--font-mono);font-size:11px;color:${wt?'#4a9eff':'var(--text-muted)'};">${wt?wt:'—'}</div>
+          <div style="font-family:var(--font-mono);font-size:9px;color:${fat?'#c97a3a':'var(--text-muted)'};" onclick="event.stopPropagation();openWeekFatLog('${d}','${labels[i]}')">${fat?fat+'%':'—%'}</div>
+        </div>`;
+      }).join('')}
+    </div>
+    <div style="font-size:9px;color:var(--text-dim);margin-top:8px;">Blue = weight · Orange = fat% · Tap any cell to log. Tap fat% separately.</div>`;
+
+  // Insert after weekChart box
+  const chartBox = document.getElementById('weekChart').closest('.chart-box');
+  chartBox.after(box);
+}
 
 // ══════════════════════════════════════
 // OVERALL TAB
@@ -1654,47 +1757,96 @@ function deleteMilestone(id) {
 function renderOverallChart() {
   if (overallChartInst) overallChartInst.destroy();
   const ctx = document.getElementById('overallChart').getContext('2d');
-  
-  if (!STATE.currentWt || !STATE.finalGoal || STATE.milestones.length === 0) {
+
+  // Actual recorded weights (from weekWeights, sorted)
+  const actualDates = Object.keys(STATE.weekWeights).sort();
+  const actualWts = actualDates.map(d => ({ x: d, y: STATE.weekWeights[d]?.wt ?? null })).filter(p => p.y !== null);
+
+  // Target line: start → each milestone → final goal
+  let targetPts = [];
+  if (STATE.currentWt) {
+    targetPts.push({ date: actualDates[0] || todayStr(), wt: STATE.currentWt });
+  }
+  STATE.milestones.forEach(m => targetPts.push({ date: m.date, wt: m.wt }));
+  if (STATE.finalGoal) {
+    const lastMs = STATE.milestones[STATE.milestones.length - 1];
+    if (!lastMs || lastMs.wt !== STATE.finalGoal) {
+      // push final goal at end date of last milestone + some buffer
+      const endDate = lastMs ? lastMs.date : todayStr();
+      targetPts.push({ date: endDate, wt: STATE.finalGoal });
+    }
+  }
+  targetPts.sort((a,b) => a.date > b.date ? 1 : -1);
+
+  // Merge all dates for unified x-axis
+  const allDates = [...new Set([...actualDates, ...targetPts.map(p => p.date)])].sort();
+
+  if (allDates.length === 0) {
     overallChartInst = new Chart(ctx, {
       type: 'line',
-      data: { labels: ['Set goals & milestones'], datasets: [{ data: [STATE.currentWt||0], borderColor:'#2a2c30' }] },
-      options: { plugins: { legend:{display:false} }, scales: { x:{ticks:{color:'#3d4047'}}, y:{ticks:{color:'#3d4047'}} } }
+      data: { labels: ['Add weight & milestones to see chart'], datasets: [] },
+      options: { plugins: { legend:{display:false} }, scales: { x:{ticks:{color:'#7a6a56'}}, y:{ticks:{color:'#7a6a56'}} } }
     });
     return;
   }
 
-  const today = todayStr();
-  const pts = [{ date: today, wt: STATE.currentWt }];
-  STATE.milestones.forEach(m => pts.push({ date: m.date, wt: m.wt }));
-  pts.sort((a,b) => a.date > b.date ? 1 : -1);
+  // Map actual weights to allDates axis (null where no data)
+  const actualLine = allDates.map(d => {
+    const pt = actualWts.find(p => p.x === d);
+    return pt ? pt.y : null;
+  });
 
-  // Actual weight from weekWeights
-  const actualDates = Object.keys(STATE.weekWeights).sort();
-  const actualWts = actualDates.map(d => STATE.weekWeights[d]?.wt || null);
+  // Map target line to allDates axis
+  const targetLine = allDates.map(d => {
+    const pt = targetPts.find(p => p.date === d);
+    return pt ? pt.wt : null;
+  });
 
   overallChartInst = new Chart(ctx, {
     type: 'line',
     data: {
-      labels: pts.map(p => fmtDate(p.date)),
+      labels: allDates.map(d => fmtDate(d)),
       datasets: [
         {
-          label: 'Target',
-          data: pts.map(p => p.wt),
+          label: 'Actual Weight',
+          data: actualLine,
+          borderColor: '#4a9eff',
+          backgroundColor: 'rgba(74,158,255,0.07)',
+          tension: 0.3,
+          pointBackgroundColor: '#4a9eff',
+          pointRadius: 5,
+          spanGaps: true
+        },
+        {
+          label: 'Target / Milestones',
+          data: targetLine,
           borderColor: '#4ecf88',
-          backgroundColor: 'rgba(78,207,136,0.06)',
+          borderDash: [6,4],
+          backgroundColor: 'transparent',
           tension: 0.3,
           pointBackgroundColor: '#4ecf88',
-          pointRadius: 5
+          pointRadius: allDates.map(d => targetPts.find(p=>p.date===d) ? 5 : 0),
+          spanGaps: true
         }
       ]
     },
     options: {
       responsive: true,
-      plugins: { legend: { display: false } },
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: {
+          display: true,
+          labels: { color: '#7a6a56', font: { size: 10 }, boxWidth: 14 }
+        },
+        tooltip: {
+          callbacks: {
+            label: ctx => ctx.parsed.y !== null ? ctx.dataset.label + ': ' + ctx.parsed.y + ' kg' : null
+          }
+        }
+      },
       scales: {
-        x: { ticks: { color: '#6b6f76', font: { size: 9 }, maxRotation: 30 }, grid: { color: '#2a2c30' } },
-        y: { ticks: { color: '#4ecf88', font: { size: 10 } }, grid: { color: '#2a2c3055' } }
+        x: { ticks: { color: '#7a6a56', font: { size: 9 }, maxRotation: 35 }, grid: { color: 'rgba(0,0,0,0.05)' } },
+        y: { ticks: { color: '#7a6a56', font: { size: 10 } }, grid: { color: 'rgba(0,0,0,0.05)' }, title: { display: true, text: 'kg', color:'#7a6a56', font:{size:9} } }
       }
     }
   });
@@ -1932,8 +2084,8 @@ window.selectDay = function(ds) {
   renderCal();
   updateCalLabel();
   renderToday();
-  // auto-close after picking a day
-  if (calOpen) toggleCal();
+  // auto-close only if NOT picking today (so user can still tap today)
+  if (calOpen && ds !== todayStr()) toggleCal();
 };
 </script>
 </body>
