@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Tracker 2</title>
 <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@300;400;500;600;700&family=DM+Mono:wght@300;400&display=swap" rel="stylesheet">
 <style>
@@ -1708,7 +1708,15 @@ function savePastWeight() {
 }
 
 function renderOverallTab() {
-  document.getElementById('currentWt').textContent = STATE.currentWt != null ? STATE.currentWt + ' kg' : '— kg';
+  // Current weight = most recent logged weight on or before today
+  const today = todayStr();
+  const loggedDates = Object.keys(STATE.weekWeights).filter(d => STATE.weekWeights[d]?.wt && d <= today).sort();
+  const latestWt = loggedDates.length > 0 ? STATE.weekWeights[loggedDates[loggedDates.length-1]].wt : STATE.currentWt;
+  const latestDate = loggedDates.length > 0 ? loggedDates[loggedDates.length-1] : null;
+
+  document.getElementById('currentWt').textContent = latestWt != null
+    ? latestWt + ' kg' + (latestDate ? '  ·  ' + fmtDate(latestDate) : '')
+    : '— kg';
   document.getElementById('finalGoal').textContent = STATE.finalGoal != null ? STATE.finalGoal + ' kg' : '— kg';
 
   // Pre-fill today in past weight log
@@ -1824,8 +1832,8 @@ function renderOverallChart() {
           borderColor: '#4a9eff',
           backgroundColor: 'rgba(74,158,255,0.07)',
           tension: 0.3,
-          pointBackgroundColor: '#4a9eff',
-          pointRadius: 5,
+          pointRadius: 0,
+          pointHoverRadius: 4,
           spanGaps: true
         },
         {
@@ -1836,7 +1844,7 @@ function renderOverallChart() {
           backgroundColor: 'transparent',
           tension: 0.3,
           pointBackgroundColor: '#4ecf88',
-          pointRadius: allDates.map(d => targetPts.find(p=>p.date===d) ? 5 : 0),
+          pointRadius: allDates.map(d => targetPts.find(p=>p.date===d) ? 4 : 0),
           spanGaps: true
         }
       ]
