@@ -164,6 +164,77 @@
   .mini-block.burn .cur { color: #ff8c4a; }
   .mini-block.water .cur { color: var(--accent2); }
 
+  .editable-goal {
+    cursor: pointer;
+    border-bottom: 1px dashed var(--border);
+    padding-bottom: 1px;
+    transition: color 0.15s, border-color 0.15s;
+  }
+  .editable-goal:hover, .editable-goal:active { color: var(--text); border-color: var(--accent); }
+
+  /* ── TODAY'S TARGET BLOCK ── */
+  .target-block {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 14px 16px;
+    margin-bottom: 10px;
+  }
+  .target-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 10px;
+  }
+  .target-title-row { display: flex; flex-direction: column; gap: 3px; }
+  .target-label { font-size: 10px; font-weight: 700; letter-spacing: 1.3px; text-transform: uppercase; color: var(--text-dim); }
+  .target-date-pill {
+    font-size: 11px;
+    color: var(--accent);
+    cursor: pointer;
+    font-weight: 600;
+  }
+  .target-add-btn {
+    background: rgba(139,94,60,0.1);
+    border: 1px solid var(--accent);
+    color: var(--accent);
+    font-family: var(--font-main);
+    font-size: 11px;
+    font-weight: 700;
+    padding: 5px 12px;
+    border-radius: 8px;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+  .target-list { display: flex; flex-direction: column; gap: 7px; }
+  .target-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 9px 11px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    transition: opacity 0.2s;
+  }
+  .target-item.done { opacity: 0.45; }
+  .target-checkbox {
+    width: 20px; height: 20px;
+    border-radius: 6px;
+    border: 2px solid var(--border);
+    background: transparent;
+    cursor: pointer;
+    flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 12px;
+    transition: all 0.15s;
+  }
+  .target-checkbox.checked { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .target-item-text { flex: 1; font-size: 13px; color: var(--text); cursor: pointer; }
+  .target-item-text.done-text { text-decoration: line-through; }
+  .target-item-days { font-size: 9px; color: var(--text-dim); font-family: var(--font-mono); white-space: nowrap; }
+  .target-item-del { background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 14px; padding: 2px 4px; flex-shrink: 0; }
+
   /* ── HISTORY LIST ── */
   .section-label {
     font-size: 10px;
@@ -627,24 +698,38 @@
     </div>
   </div>
 
+  <!-- Today's Target block -->
+  <div class="target-block" id="targetBlock">
+    <div class="target-header">
+      <div class="target-title-row">
+        <span class="target-label">Today's Target</span>
+        <div class="target-date-pill" onclick="openTargetDatePicker()">
+          <span id="targetDateDisplay">Today only</span> ›
+        </div>
+      </div>
+      <button class="target-add-btn" onclick="openAddTarget()">+ Add</button>
+    </div>
+    <div id="targetList" class="target-list"></div>
+  </div>
+
   <!-- 3 mini blocks -->
   <div class="mini-row">
     <div class="mini-block burn">
       <div class="mini-label">Burn</div>
       <div class="mini-values">
-        <span class="cur" id="burnCur">0</span><span class="sep"> / </span><span class="goal" id="burnGoal">500</span>
+        <span class="cur" id="burnCur">0</span><span class="sep"> / </span><span class="goal editable-goal" id="burnGoal" onclick="editGoalInline('burn')" title="tap to edit">500</span>
       </div>
     </div>
     <div class="mini-block intake">
       <div class="mini-label">Intake</div>
       <div class="mini-values">
-        <span class="cur" id="intakeCur">0</span><span class="sep"> / </span><span class="goal" id="intakeGoal">1800</span>
+        <span class="cur" id="intakeCur">0</span><span class="sep"> / </span><span class="goal editable-goal" id="intakeGoal" onclick="editGoalInline('intake')" title="tap to edit">1800</span>
       </div>
     </div>
     <div class="mini-block water">
       <div class="mini-label">Water</div>
       <div class="mini-values">
-        <span class="cur" id="waterCur">0</span><span class="sep"> / </span><span class="goal" id="waterGoal">2000</span><span style="font-size:9px;color:var(--text-dim)">ml</span>
+        <span class="cur" id="waterCur">0</span><span class="sep"> / </span><span class="goal editable-goal" id="waterGoal" onclick="editGoalInline('water')" title="tap to edit">2000</span><span style="font-size:9px;color:var(--text-dim)">ml</span>
       </div>
     </div>
   </div>
@@ -918,6 +1003,74 @@
   </div>
 </div>
 
+<!-- ════════════════════ ADD TARGET MODAL ════════════════════ -->
+<div class="modal-overlay" id="addTargetModal">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-title" id="addTargetTitle">Add Target</div>
+    <input type="hidden" id="editTargetId">
+
+    <div class="form-group">
+      <label class="form-label">Target Text</label>
+      <input type="text" class="form-input" id="targetText" placeholder="e.g. No sugar today, Walk 8,000 steps…">
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Apply to</label>
+      <div class="type-toggle" style="margin-bottom:8px;">
+        <button class="type-btn active" id="tgtModeToday" onclick="setTargetMode('today')">Today only</button>
+        <button class="type-btn" id="tgtModeRange" onclick="setTargetMode('range')">Date range</button>
+        <button class="type-btn" id="tgtModePick" onclick="setTargetMode('pick')">Pick days</button>
+      </div>
+
+      <!-- Today only: nothing extra -->
+      <div id="tgtRangeFields" style="display:none;">
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">From</label>
+            <input type="date" class="form-input" id="tgtFrom">
+          </div>
+          <div class="form-group">
+            <label class="form-label">To</label>
+            <input type="date" class="form-input" id="tgtTo">
+          </div>
+        </div>
+      </div>
+
+      <div id="tgtPickFields" style="display:none;">
+        <div style="font-size:11px;color:var(--text-dim);margin-bottom:8px;">Tap days to toggle:</div>
+        <div class="cal-days-header" style="margin-bottom:4px;">
+          <span>Su</span><span>Mo</span><span>Tu</span><span>We</span><span>Th</span><span>Fr</span><span>Sa</span>
+        </div>
+        <div id="tgtPickGrid" style="display:grid;grid-template-columns:repeat(7,1fr);gap:2px;"></div>
+        <div style="font-size:10px;color:var(--text-dim);margin-top:6px;" id="tgtPickCount">0 days selected</div>
+      </div>
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeModal('addTargetModal')">Cancel</button>
+      <button class="btn-ok" onclick="saveTarget()">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════ INLINE GOAL EDIT MODAL ════════════════════ -->
+<div class="modal-overlay" id="goalInlineModal">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-title" id="goalInlineTitle">Edit Goal</div>
+    <input type="hidden" id="goalInlineKey">
+    <div class="form-group">
+      <label class="form-label" id="goalInlineLabel">Value</label>
+      <input type="number" class="form-input" id="goalInlineVal">
+    </div>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeModal('goalInlineModal')">Cancel</button>
+      <button class="btn-ok" onclick="saveGoalInline()">Save</button>
+    </div>
+  </div>
+</div>
+
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
 <script>
 // ══════════════════════════════════════
@@ -935,7 +1088,8 @@ const STATE = {
   records: [],          // {id, date, type, name, kcal}
   highlights: {},       // { "YYYY-MM-DD": {type, note} }
   weekWeights: {},      // { "YYYY-MM-DD": {wt, fat} }
-  milestones: []        // {id, wt, date, done}
+  milestones: [],       // {id, wt, date, done}
+  targets: []           // {id, text, dates:[], done:[]}
 };
 
 let selectedDate = todayStr();
@@ -1115,6 +1269,8 @@ function renderToday() {
   document.getElementById('waterGoal').textContent = STATE.waterGoal;
 
   document.getElementById('historyDateLabel').textContent = 'Records — ' + fmtDate(selectedDate);
+
+  renderTargets();
 
   const list = document.getElementById('historyList');
   if (recs.length === 0) {
@@ -1542,6 +1698,171 @@ function renderOverallChart() {
       }
     }
   });
+}
+
+// ══════════════════════════════════════
+// TARGETS
+// ══════════════════════════════════════
+let targetMode = 'today';
+let tgtPickedDates = [];
+let editingTargetId = null;
+
+function openAddTarget() {
+  editingTargetId = null;
+  document.getElementById('addTargetTitle').textContent = 'Add Target';
+  document.getElementById('targetText').value = '';
+  document.getElementById('editTargetId').value = '';
+  setTargetMode('today');
+  tgtPickedDates = [];
+  document.getElementById('tgtFrom').value = selectedDate;
+  document.getElementById('tgtTo').value = selectedDate;
+  renderTgtPickGrid();
+  openModal('addTargetModal');
+}
+
+function openTargetDatePicker() {
+  // reuse add target modal in range mode to just set the view date
+  openAddTarget();
+}
+
+function setTargetMode(mode) {
+  targetMode = mode;
+  ['today','range','pick'].forEach(m => {
+    document.getElementById('tgtMode'+m.charAt(0).toUpperCase()+m.slice(1)).classList.toggle('active', m === mode);
+  });
+  document.getElementById('tgtRangeFields').style.display = mode === 'range' ? 'block' : 'none';
+  document.getElementById('tgtPickFields').style.display = mode === 'pick' ? 'block' : 'none';
+  if (mode === 'pick') renderTgtPickGrid();
+}
+
+function renderTgtPickGrid() {
+  const y = new Date().getFullYear();
+  const m = new Date().getMonth();
+  const first = new Date(y, m, 1).getDay();
+  const days = new Date(y, m+1, 0).getDate();
+  let html = '';
+  for (let i = 0; i < first; i++) html += '<div></div>';
+  for (let d = 1; d <= days; d++) {
+    const ds = y+'-'+String(m+1).padStart(2,'0')+'-'+String(d).padStart(2,'0');
+    const sel = tgtPickedDates.includes(ds);
+    html += `<div onclick="toggleTgtDate('${ds}')" style="
+      aspect-ratio:1;display:flex;align-items:center;justify-content:center;
+      font-size:11px;border-radius:6px;cursor:pointer;
+      background:${sel?'var(--accent)':'var(--surface2)'};
+      color:${sel?'#fff':'var(--text-dim)'};
+      border:1px solid ${sel?'var(--accent)':'var(--border)'};
+      font-family:var(--font-mono);
+    ">${d}</div>`;
+  }
+  document.getElementById('tgtPickGrid').innerHTML = html;
+  document.getElementById('tgtPickCount').textContent = tgtPickedDates.length + ' day' + (tgtPickedDates.length!==1?'s':'') + ' selected';
+}
+
+function toggleTgtDate(ds) {
+  const i = tgtPickedDates.indexOf(ds);
+  if (i >= 0) tgtPickedDates.splice(i, 1); else tgtPickedDates.push(ds);
+  renderTgtPickGrid();
+}
+
+function saveTarget() {
+  const text = document.getElementById('targetText').value.trim();
+  if (!text) { document.getElementById('targetText').focus(); return; }
+
+  let dates = [];
+  if (targetMode === 'today') {
+    dates = [selectedDate];
+  } else if (targetMode === 'range') {
+    const from = document.getElementById('tgtFrom').value;
+    const to = document.getElementById('tgtTo').value;
+    if (!from || !to) return;
+    let cur = new Date(from+'T00:00:00');
+    const end = new Date(to+'T00:00:00');
+    while (cur <= end) {
+      dates.push(cur.toISOString().slice(0,10));
+      cur.setDate(cur.getDate()+1);
+    }
+  } else {
+    dates = [...tgtPickedDates];
+  }
+  if (dates.length === 0) return;
+
+  if (editingTargetId) {
+    const t = STATE.targets.find(x => x.id === editingTargetId);
+    if (t) { t.text = text; t.dates = dates; }
+  } else {
+    STATE.targets.push({ id: Date.now(), text, dates, done: {} });
+  }
+  save();
+  closeModal('addTargetModal');
+  renderTargets();
+}
+
+function toggleTargetDone(id) {
+  const t = STATE.targets.find(x => x.id === id);
+  if (!t) return;
+  if (!t.done) t.done = {};
+  t.done[selectedDate] = !t.done[selectedDate];
+  save();
+  renderTargets();
+}
+
+function deleteTarget(id) {
+  STATE.targets = STATE.targets.filter(x => x.id !== id);
+  save();
+  renderTargets();
+}
+
+function editTarget(id) {
+  const t = STATE.targets.find(x => x.id === id);
+  if (!t) return;
+  editingTargetId = id;
+  document.getElementById('addTargetTitle').textContent = 'Edit Target';
+  document.getElementById('targetText').value = t.text;
+  tgtPickedDates = [...t.dates];
+  setTargetMode('pick');
+  renderTgtPickGrid();
+  openModal('addTargetModal');
+}
+
+function renderTargets() {
+  const list = document.getElementById('targetList');
+  const relevant = STATE.targets.filter(t => t.dates && t.dates.includes(selectedDate));
+  if (relevant.length === 0) {
+    list.innerHTML = '<div style="font-size:12px;color:var(--text-muted);padding:4px 0;">No targets for this day.</div>';
+    return;
+  }
+  list.innerHTML = relevant.map(t => {
+    const isDone = t.done && t.done[selectedDate];
+    const span = t.dates.length > 1 ? `<span class="target-item-days">${t.dates.length}d</span>` : '';
+    return `<div class="target-item ${isDone?'done':''}">
+      <div class="target-checkbox ${isDone?'checked':''}" onclick="toggleTargetDone(${t.id})">${isDone?'✓':''}</div>
+      <div class="target-item-text ${isDone?'done-text':''}" onclick="editTarget(${t.id})">${t.text}</div>
+      ${span}
+      <button class="target-item-del" onclick="deleteTarget(${t.id})">✕</button>
+    </div>`;
+  }).join('');
+}
+
+// ══════════════════════════════════════
+// EDITABLE GOALS (mini blocks)
+// ══════════════════════════════════════
+function editGoalInline(key) {
+  const labels = { burn:'Burn Goal (kcal)', intake:'Intake Goal (kcal)', water:'Water Goal (ml)' };
+  document.getElementById('goalInlineTitle').textContent = 'Edit ' + key.charAt(0).toUpperCase()+key.slice(1)+' Goal';
+  document.getElementById('goalInlineLabel').textContent = labels[key];
+  document.getElementById('goalInlineKey').value = key;
+  document.getElementById('goalInlineVal').value = STATE[key+'Goal'];
+  openModal('goalInlineModal');
+}
+function saveGoalInline() {
+  const key = document.getElementById('goalInlineKey').value;
+  const val = parseInt(document.getElementById('goalInlineVal').value);
+  if (!isNaN(val) && val > 0) {
+    STATE[key+'Goal'] = val;
+    save();
+  }
+  closeModal('goalInlineModal');
+  renderToday();
 }
 
 // ══════════════════════════════════════
