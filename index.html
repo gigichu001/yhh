@@ -1137,7 +1137,8 @@ const STATE = {
   highlights: {},       // { "YYYY-MM-DD": {type, note} }
   weekWeights: {},      // { "YYYY-MM-DD": {wt, fat} }
   milestones: [],       // {id, wt, date, done}
-  targets: []           // {id, text, dates:[], done:[]}
+  targets: [],          // {id, text, dates:[], done:[]}
+  weekGoals: { intake: 12600, burn: 3500, water: 14000 } // weekly targets (7× daily)
 };
 
 let selectedDate = todayStr();
@@ -1503,23 +1504,32 @@ function saveWeekModal() {
   renderWeekTab();
 }
 
-function renderWeekTab() {
+function editWeekGoal(key) {
+  const labels = { intake:'Weekly Intake Goal (kcal)', burn:'Weekly Burn Goal (kcal)', water:'Weekly Water Goal (ml)' };
+  weekModalMode = 'weekgoal_'+key;
+  document.getElementById('weekModalTitle').textContent = 'Edit '+key.charAt(0).toUpperCase()+key.slice(1)+' Goal';
+  document.getElementById('weekModalLabel').textContent = labels[key];
+  const wg = STATE.weekGoals || { intake:12600, burn:3500, water:14000 };
+  document.getElementById('weekModalInput').value = wg[key] || 0;
+  openModal('weekModal');
+}
   const dates = getWeekDates();
   const dayLabels = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
   const today = todayStr();
   const isPastWeek = dates[6] < today;
   const isCurrentWeek = weekOffset === 0;
 
-  // Range label in header
+  // Range label
   const from = new Date(dates[0]+'T00:00:00');
   const to   = new Date(dates[6]+'T00:00:00');
   const mo = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
   const sameMonth = from.getMonth() === to.getMonth();
-  const rangeStr = mo[from.getMonth()]+' '+from.getDate() + (sameMonth ? '' : ' '+mo[to.getMonth()]) + '–'+to.getDate()+', '+to.getFullYear();
+  const rangeStr = mo[from.getMonth()]+' '+from.getDate()+(sameMonth?'':' '+mo[to.getMonth()])+'–'+to.getDate()+', '+to.getFullYear();
   document.getElementById('weekRangeLabel').textContent = isCurrentWeek ? 'This Week · '+rangeStr : rangeStr;
 
-  // Count days: full 7 for past weeks, up to today for current week
+  // Days: full 7 for past weeks; for current week only Mon up to and including today
   const doneDates = isPastWeek ? dates : dates.filter(d => d <= today);
+  const daysLeft  = isCurrentWeek ? dates.filter(d => d > today).length : 0;
 
   let totalIntake = 0, totalBurn = 0, totalWater = 0;
   doneDates.forEach(d => {
@@ -1529,28 +1539,31 @@ function renderWeekTab() {
     totalWater  += recs.filter(r => r.type === 'water').reduce((s,r) => s + r.kcal, 0);
   });
 
-  const daysElapsed = doneDates.length;
-  const deficit = (STATE.fixed * daysElapsed + totalBurn) - totalIntake;
+  const deficit = (STATE.fixed * doneDates.length + totalBurn) - totalIntake;
 
-  document.getElementById('weekAim').textContent = STATE.weekAim.toLocaleString();
+  // Week aim block: xx = deficit so far, yy = editable target
   document.getElementById('weekCurrent').textContent = (deficit >= 0 ? '+' : '') + deficit.toLocaleString();
   document.getElementById('weekCurrent').style.color = deficit >= 0 ? 'var(--green)' : 'var(--red)';
-  document.getElementById('weekFat').textContent = STATE.weekFat != null ? STATE.weekFat + '%' : '—%';
+  document.getElementById('weekAim').textContent = (STATE.weekAim || -2100).toLocaleString();
+  if (document.getElementById('weekDaysLeft'))
+    document.getElementById('weekDaysLeft').textContent = isCurrentWeek ? daysLeft+'d' : '—';
 
-  document.getElementById('wsTotalIntake').textContent = totalIntake + ' kcal';
-  document.getElementById('wsTotalBurn').textContent   = totalBurn   + ' kcal';
-  document.getElementById('wsTotalWater').textContent  = totalWater  + ' ml';
-  document.getElementById('wsNetDeficit').textContent  = (deficit >= 0 ? '+' : '') + deficit.toLocaleString() + ' kcal';
-  document.getElementById('wsNetDeficit').style.color  = deficit >= 0 ? 'var(--green)' : 'var(--red)';
+  // Summary xx/yy
+  document.getElementById('wsTotalIntake').textContent = totalIntake.toLocaleString();
+  document.getElementById('wsTotalBurn').textContent   = totalBurn.toLocaleString();
+  document.getElementById('wsTotalWater').textContent  = totalWater.toLocaleString();
+  const wg = STATE.weekGoals || { intake:12600, burn:3500, water:14000 };
+  document.getElementById('wsIntakeGoal').textContent = (wg.intake||12600).toLocaleString();
+  document.getElementById('wsBurnGoal').textContent   = (wg.burn||3500).toLocaleString();
+  document.getElementById('wsWaterGoal').textContent  = (wg.water||14000).toLocaleString();
 
-  document.getElementById('weekChartTitle').textContent = 'Weight & Fat % — ' + (isCurrentWeek ? 'This Week' : rangeStr);
+  document.getElementById('weekChartTitle').textContent = 'Weight — '+(isCurrentWeek?'This Week':rangeStr);
 
-  const wtData    = dates.map(d => STATE.weekWeights[d]?.wt  ?? null);
-  const fatData   = dates.map(d => STATE.weekWeights[d]?.fat ?? null);
-  const startWt   = STATE.currentWt, endWt = STATE.finalGoal;
-  const idealData = (startWt && endWt)
-    ? dates.map((_,i) => +(startWt - (startWt - endWt) * i / 90).toFixed(2))
-    : Array(7).fill(null);
+  // Weight data only (fat removed — now in Overall tab)
+  const wtData = dates.map(d => STATE.weekWeights[d]?.wt ?? null);
+
+  // Ideal line: interpolate from milestones anchored to real dates
+  const idealData = buildIdealWeekLine(dates);
 
   const chartLabels = dates.map((d,i) => dayLabels[i]+' '+new Date(d+'T00:00:00').getDate());
 
@@ -1562,24 +1575,24 @@ function renderWeekTab() {
       labels: chartLabels,
       datasets: [
         { label:'Weight (kg)', data:wtData, borderColor:'#4a9eff', backgroundColor:'rgba(74,158,255,0.07)',
-          tension:0.4, pointBackgroundColor:'#4a9eff', pointRadius:5, spanGaps:true, yAxisID:'y' },
-        { label:'Fat %', data:fatData, borderColor:'#c97a3a', backgroundColor:'transparent',
-          tension:0.4, pointBackgroundColor:'#c97a3a', pointRadius:4, spanGaps:true, yAxisID:'y1' },
-        { label:'Ideal (kg)', data:idealData, borderColor:'#4ecf88', borderDash:[5,4],
-          backgroundColor:'transparent', tension:0.3, pointRadius:0, yAxisID:'y' }
+          tension:0.4, pointBackgroundColor:'#4a9eff', pointRadius:4, spanGaps:true },
+        ...(idealData.some(v=>v!==null) ? [{
+          label:'Milestone target', data:idealData, borderColor:'#4ecf88', borderDash:[5,4],
+          backgroundColor:'transparent', tension:0.3, pointRadius:0, spanGaps:true
+        }] : [])
       ]
     },
     options: {
       responsive: true,
-      interaction: { mode:'index', intersect:false },
-      plugins: {
-        legend: { display:false },
-        tooltip: { callbacks: { label: c => c.parsed.y !== null ? c.dataset.label+': '+c.parsed.y+(c.datasetIndex===1?'%':' kg') : null } }
+      interaction:{ mode:'index', intersect:false },
+      plugins:{
+        legend:{ display:false },
+        tooltip:{ callbacks:{ label: c => c.parsed.y!==null ? c.dataset.label+': '+c.parsed.y+' kg' : null }}
       },
-      scales: {
-        x:  { ticks:{color:'#7a6a56',font:{size:10}}, grid:{color:'rgba(0,0,0,0.06)'} },
-        y:  { position:'left',  ticks:{color:'#4a9eff',font:{size:10}}, grid:{color:'rgba(0,0,0,0.06)'}, title:{display:true,text:'kg',color:'#4a9eff',font:{size:9}} },
-        y1: { position:'right', ticks:{color:'#c97a3a',font:{size:10}}, grid:{display:false},            title:{display:true,text:'%', color:'#c97a3a',font:{size:9}} }
+      scales:{
+        x:{ ticks:{color:'#7a6a56',font:{size:10}}, grid:{color:'rgba(0,0,0,0.06)'} },
+        y:{ ticks:{color:'#4a9eff',font:{size:10}}, grid:{color:'rgba(0,0,0,0.06)'},
+            title:{display:true,text:'kg',color:'#4a9eff',font:{size:9}} }
       }
     }
   });
@@ -1590,6 +1603,36 @@ function renderWeekTab() {
   };
 
   renderWeekWeightRow(dates, chartLabels, today);
+}
+
+// Interpolate milestone target weights for each day of the week
+function buildIdealWeekLine(dates) {
+  // Build anchor points: earliest logged weight as start + all milestones
+  const anchors = [];
+  const loggedDates = Object.keys(STATE.weekWeights).filter(d => STATE.weekWeights[d]?.wt).sort();
+  if (loggedDates.length > 0) anchors.push({ date: loggedDates[0], wt: STATE.weekWeights[loggedDates[0]].wt });
+  STATE.milestones.forEach(m => anchors.push({ date: m.date, wt: m.wt }));
+  if (STATE.finalGoal && STATE.milestones.length > 0) {
+    const last = STATE.milestones[STATE.milestones.length-1];
+    if (last.wt !== STATE.finalGoal) anchors.push({ date: last.date, wt: STATE.finalGoal });
+  }
+  anchors.sort((a,b) => a.date > b.date ? 1 : -1);
+  if (anchors.length < 2) return Array(7).fill(null);
+
+  return dates.map(d => {
+    // find surrounding anchors and interpolate
+    if (d <= anchors[0].date) return anchors[0].wt;
+    if (d >= anchors[anchors.length-1].date) return anchors[anchors.length-1].wt;
+    for (let i = 0; i < anchors.length-1; i++) {
+      const a = anchors[i], b = anchors[i+1];
+      if (d >= a.date && d <= b.date) {
+        const t0 = new Date(a.date).getTime(), t1 = new Date(b.date).getTime(), td = new Date(d).getTime();
+        const ratio = (td-t0)/(t1-t0);
+        return +( a.wt + (b.wt - a.wt) * ratio ).toFixed(2);
+      }
+    }
+    return null;
+  });
 }
 
 let weekWtDate = '';
@@ -1634,6 +1677,16 @@ window.saveWeekModal = function() {
       STATE.weekFat = v;
       save();
     }
+    closeModal('weekModal');
+    renderWeekTab();
+    return;
+  }
+  // weekgoal modes
+  if (weekModalMode.startsWith('weekgoal_')) {
+    const key = weekModalMode.replace('weekgoal_','');
+    if (!STATE.weekGoals) STATE.weekGoals = { intake:12600, burn:3500, water:14000 };
+    if (!isNaN(v)) STATE.weekGoals[key] = v;
+    save();
     closeModal('weekModal');
     renderWeekTab();
     return;
@@ -1861,7 +1914,8 @@ function renderOverallChart() {
           tension: 0.3,
           pointRadius: 0,
           pointHoverRadius: 4,
-          spanGaps: true
+          spanGaps: true,
+          yAxisID: 'y'
         },
         {
           label: 'Target / Milestones',
@@ -1872,7 +1926,19 @@ function renderOverallChart() {
           tension: 0.3,
           pointBackgroundColor: '#4ecf88',
           pointRadius: allDates.map(d => targetPts.find(p=>p.date===d) ? 4 : 0),
-          spanGaps: true
+          spanGaps: true,
+          yAxisID: 'y'
+        },
+        {
+          label: 'Body Fat %',
+          data: allDates.map(d => STATE.weekWeights[d]?.fat ?? null),
+          borderColor: '#c97a3a',
+          backgroundColor: 'transparent',
+          tension: 0.3,
+          pointRadius: 0,
+          pointHoverRadius: 3,
+          spanGaps: true,
+          yAxisID: 'y1'
         }
       ]
     },
@@ -1886,13 +1952,19 @@ function renderOverallChart() {
         },
         tooltip: {
           callbacks: {
-            label: ctx => ctx.parsed.y !== null ? ctx.dataset.label + ': ' + ctx.parsed.y + ' kg' : null
+            label: c => {
+              if (c.parsed.y === null) return null;
+              return c.dataset.label + ': ' + c.parsed.y + (c.datasetIndex === 2 ? '%' : ' kg');
+            }
           }
         }
       },
       scales: {
-        x: { ticks: { color: '#7a6a56', font: { size: 9 }, maxRotation: 35 }, grid: { color: 'rgba(0,0,0,0.05)' } },
-        y: { ticks: { color: '#7a6a56', font: { size: 10 } }, grid: { color: 'rgba(0,0,0,0.05)' }, title: { display: true, text: 'kg', color:'#7a6a56', font:{size:9} } }
+        x:  { ticks:{color:'#7a6a56',font:{size:9},maxRotation:35}, grid:{color:'rgba(0,0,0,0.05)'} },
+        y:  { position:'left',  ticks:{color:'#7a6a56',font:{size:10}}, grid:{color:'rgba(0,0,0,0.05)'},
+              title:{display:true,text:'kg',color:'#7a6a56',font:{size:9}} },
+        y1: { position:'right', ticks:{color:'#c97a3a',font:{size:10}}, grid:{display:false},
+              title:{display:true,text:'%',color:'#c97a3a',font:{size:9}} }
       }
     }
   });
@@ -2264,8 +2336,12 @@ function injectSeedData() {
     '2025-06-08': { wt: 71.6, fat: 33.7 },
   };
 
-  STATE.records = records;
-  STATE.weekWeights = weekWeights;
+  // Merge: add seed records not already present (by id), merge weekWeights
+  const existingIds = new Set(STATE.records.map(r => r.id));
+  records.forEach(r => { if (!existingIds.has(r.id)) STATE.records.push(r); });
+  Object.keys(weekWeights).forEach(d => {
+    if (!STATE.weekWeights[d]) STATE.weekWeights[d] = weekWeights[d];
+  });
   STATE.currentWt = 71.6;
   STATE.weekFat = 33.7;
   save();
@@ -2275,9 +2351,11 @@ function injectSeedData() {
 // INIT
 // ══════════════════════════════════════
 load();
-// Only inject seed if app has never been used
-if (STATE.records.length === 0 && Object.keys(STATE.weekWeights).length === 0) {
+// Use a seed version flag — if not set, inject seed data once
+if (!STATE.seedVersion || STATE.seedVersion < 1) {
   injectSeedData();
+  STATE.seedVersion = 1;
+  save();
 }
 updateTopbar();
 currentCalMonth = new Date();
