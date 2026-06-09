@@ -324,7 +324,6 @@
   </div>
 
   <div class="chart-box">
-    <div class="chart-title" id="weekChartTitle">Weight — This Week</div>
     <canvas id="weekChart" height="180"></canvas>
     <div class="week-legend">
       <div class="wleg"><div class="wleg-dot wt"></div> Weight (kg)</div>
@@ -376,7 +375,6 @@
   </div>
 
   <div class="overall-chart-box">
-    <div class="chart-title">Weight Journey</div>
     <canvas id="overallChart" height="200"></canvas>
     <div class="week-legend" style="margin-top:10px;">
       <div class="wleg"><div class="wleg-dot wt"></div> Actual weight</div>
@@ -1166,8 +1164,6 @@ function renderWeekTab() {
   document.getElementById('wsBurnGoal').textContent   = (wg.burn||3500).toLocaleString();
   document.getElementById('wsWaterGoal').textContent  = (wg.water||14000).toLocaleString();
 
-  document.getElementById('weekChartTitle').textContent = 'Weight — '+(isCurrentWeek?'This Week':rangeStr);
-
   // Weight only — NO fat line in week chart
   const wtData = dates.map(d => STATE.weekWeights[d]?.wt ?? null);
   const idealData = buildIdealWeekLine(dates);
@@ -1180,11 +1176,11 @@ function renderWeekTab() {
     data: {
       labels: chartLabels,
       datasets: [
-        { label:'Weight (kg)', data:wtData, borderColor:'#4a9eff', backgroundColor:'rgba(74,158,255,0.07)',
-          tension:0.4, pointBackgroundColor:'#4a9eff', pointRadius:4, spanGaps:true },
+        { label:'Weight (kg)', data:wtData, borderColor:'#4a9eff', backgroundColor:'rgba(74,158,255,0.06)',
+          tension:0.4, borderWidth:1.5, pointRadius:0, pointHoverRadius:3, spanGaps:true },
         ...(idealData.some(v=>v!==null)?[{
           label:'Milestone target', data:idealData, borderColor:'#4ecf88', borderDash:[5,4],
-          backgroundColor:'transparent', tension:0.3, pointRadius:0, spanGaps:true
+          backgroundColor:'transparent', tension:0.4, borderWidth:1.2, pointRadius:0, pointHoverRadius:0, spanGaps:true
         }]:[])
       ]
     },
@@ -1198,7 +1194,7 @@ function renderWeekTab() {
       scales:{
         x:{ticks:{color:'#7a6a56',font:{size:10}},grid:{color:'rgba(0,0,0,0.06)'}},
         y:{min:55,max:78,ticks:{color:'#4a9eff',font:{size:10}},grid:{color:'rgba(0,0,0,0.06)'},
-           title:{display:true,text:'kg',color:'#4a9eff',font:{size:9}}}
+           title:{display:false}}
       }
     }
   });
@@ -1448,7 +1444,7 @@ function renderOverallChart() {
          borderWidth:1.5, tension:0.4, pointRadius:0, pointHoverRadius:3, spanGaps:true, yAxisID:'y'},
         {label:'Target', data:targetLine, borderColor:'#4ecf88', borderDash:[5,4],
          backgroundColor:'transparent', borderWidth:1.2, tension:0.4,
-         pointRadius:0, pointHoverRadius:0, spanGaps:true, yAxisID:'y'},
+         pointRadius: allDates.map(d=>targetPts.find(p=>p.date===d)?4:0), pointHoverRadius:0, spanGaps:true, yAxisID:'y'},
         {label:'Body Fat %', data:fatLine, borderColor:'#c97a3a', backgroundColor:'transparent',
          borderWidth:1.5, tension:0.4, pointRadius:0, pointHoverRadius:3, spanGaps:true, yAxisID:'y1'}
       ]
@@ -1457,15 +1453,15 @@ function renderOverallChart() {
       responsive:true,
       interaction:{mode:'index',intersect:false},
       plugins:{
-        legend:{display:true,labels:{color:'#7a6a56',font:{size:10},boxWidth:14}},
+        legend:{display:false},
         tooltip:{callbacks:{label:c=>c.parsed.y!==null?c.dataset.label+': '+c.parsed.y+(c.datasetIndex===2?'%':' kg'):null}}
       },
       scales:{
         x:{ticks:{color:'#7a6a56',font:{size:9},maxRotation:35,maxTicksLimit:10},grid:{color:'rgba(0,0,0,0.04)'}},
         y:{position:'left',min:55,max:78,ticks:{color:'#7a6a56',font:{size:10}},grid:{color:'rgba(0,0,0,0.05)'},
-           title:{display:true,text:'kg',color:'#7a6a56',font:{size:9}}},
+           title:{display:false}},
         y1:{position:'right',min:25,max:38,ticks:{color:'#c97a3a',font:{size:10}},grid:{display:false},
-            title:{display:true,text:'%',color:'#c97a3a',font:{size:9}}}
+            title:{display:false}}
       }
     }
   });
