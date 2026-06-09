@@ -742,6 +742,16 @@
 
 <!-- ════════════════════ WEEK TAB ════════════════════ -->
 <div class="page" id="page-week">
+  <!-- Week nav -->
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+    <button class="cal-nav" onclick="weekNav(-1)" style="font-size:20px;padding:4px 10px;">‹</button>
+    <div style="text-align:center;">
+      <div style="font-size:13px;font-weight:700;color:var(--text);" id="weekRangeLabel">—</div>
+      <button onclick="weekNavToday()" style="background:none;border:none;font-size:10px;font-weight:700;color:var(--accent);cursor:pointer;font-family:var(--font-main);padding:2px 0;">THIS WEEK</button>
+    </div>
+    <button class="cal-nav" onclick="weekNav(1)" style="font-size:20px;padding:4px 10px;">›</button>
+  </div>
+
   <div class="week-top">
     <div class="week-kpi">
       <div class="week-kpi-label">Week Aim</div>
@@ -760,7 +770,7 @@
   </div>
 
   <div class="chart-box">
-    <div class="chart-title">Weight & Fat % — This Week</div>
+    <div class="chart-title" id="weekChartTitle">Weight & Fat % — This Week</div>
     <canvas id="weekChart" height="180"></canvas>
     <div class="week-legend">
       <div class="wleg"><div class="wleg-dot wt"></div> Weight (kg)</div>
@@ -791,6 +801,16 @@
       <div style="text-align:right">
         <div class="gc-label">Final Goal</div>
         <div class="gc-goal" id="finalGoal" onclick="editFinalGoal()">— kg</div>
+      </div>
+    </div>
+    <!-- Log past weight directly -->
+    <div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--border);">
+      <div style="font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--text-dim);margin-bottom:8px;">Log Past Weight</div>
+      <div style="display:flex;gap:8px;align-items:center;">
+        <input type="date" id="pastWtDate" class="form-input" style="flex:1;padding:9px 12px;font-size:13px;">
+        <input type="number" id="pastWtVal" class="form-input" placeholder="kg" step="0.1" style="width:80px;padding:9px 12px;font-size:13px;">
+        <input type="number" id="pastFatVal" class="form-input" placeholder="fat%" step="0.1" style="width:72px;padding:9px 12px;font-size:13px;">
+        <button onclick="savePastWeight()" style="background:var(--accent);border:none;color:#fff;font-family:var(--font-main);font-size:12px;font-weight:700;padding:9px 14px;border-radius:10px;cursor:pointer;white-space:nowrap;">Log</button>
       </div>
     </div>
   </div>
@@ -1410,11 +1430,22 @@ function saveFixed() {
 // ══════════════════════════════════════
 // WEEK TAB
 // ══════════════════════════════════════
+let weekOffset = 0; // 0 = current week, -1 = last week, etc.
+
+function weekNav(dir) {
+  weekOffset += dir;
+  renderWeekTab();
+}
+function weekNavToday() {
+  weekOffset = 0;
+  renderWeekTab();
+}
+
 function getWeekDates() {
   const today = new Date();
   const day = today.getDay();
   const monday = new Date(today);
-  monday.setDate(today.getDate() - ((day + 6) % 7));
+  monday.setDate(today.getDate() - ((day + 6) % 7) + weekOffset * 7);
   return Array.from({length:7}, (_,i) => {
     const d = new Date(monday);
     d.setDate(monday.getDate() + i);
@@ -1449,20 +1480,28 @@ function renderWeekTab() {
   const dates = getWeekDates();
   const dayLabels = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
   const today = todayStr();
+  const isPastWeek = dates[6] < today;
+  const isCurrentWeek = weekOffset === 0;
 
-  // Only count days up to and including today (past days in the week)
-  const doneDates = dates.filter(d => d <= today);
+  // Range label in header
+  const from = new Date(dates[0]+'T00:00:00');
+  const to   = new Date(dates[6]+'T00:00:00');
+  const mo = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const sameMonth = from.getMonth() === to.getMonth();
+  const rangeStr = mo[from.getMonth()]+' '+from.getDate() + (sameMonth ? '' : ' '+mo[to.getMonth()]) + '–'+to.getDate()+', '+to.getFullYear();
+  document.getElementById('weekRangeLabel').textContent = isCurrentWeek ? 'This Week · '+rangeStr : rangeStr;
+
+  // Count days: full 7 for past weeks, up to today for current week
+  const doneDates = isPastWeek ? dates : dates.filter(d => d <= today);
 
   let totalIntake = 0, totalBurn = 0, totalWater = 0;
   doneDates.forEach(d => {
     const recs = STATE.records.filter(r => r.date === d);
     totalIntake += recs.filter(r => r.type === 'food').reduce((s,r) => s + r.kcal, 0);
-    totalBurn += recs.filter(r => r.type === 'exercise').reduce((s,r) => s + r.kcal, 0);
-    totalWater += recs.filter(r => r.type === 'water').reduce((s,r) => s + r.kcal, 0);
+    totalBurn   += recs.filter(r => r.type === 'exercise').reduce((s,r) => s + r.kcal, 0);
+    totalWater  += recs.filter(r => r.type === 'water').reduce((s,r) => s + r.kcal, 0);
   });
 
-  // Deficit = (fixed × days elapsed + exercise burn) - food intake
-  // Positive = good (you burned more than you ate)
   const daysElapsed = doneDates.length;
   const deficit = (STATE.fixed * daysElapsed + totalBurn) - totalIntake;
 
@@ -1472,28 +1511,21 @@ function renderWeekTab() {
   document.getElementById('weekFat').textContent = STATE.weekFat != null ? STATE.weekFat + '%' : '—%';
 
   document.getElementById('wsTotalIntake').textContent = totalIntake + ' kcal';
-  document.getElementById('wsTotalBurn').textContent = totalBurn + ' kcal';
-  document.getElementById('wsTotalWater').textContent = totalWater + ' ml';
-  document.getElementById('wsNetDeficit').textContent = (deficit >= 0 ? '+' : '') + deficit.toLocaleString() + ' kcal';
-  document.getElementById('wsNetDeficit').style.color = deficit >= 0 ? 'var(--green)' : 'var(--red)';
+  document.getElementById('wsTotalBurn').textContent   = totalBurn   + ' kcal';
+  document.getElementById('wsTotalWater').textContent  = totalWater  + ' ml';
+  document.getElementById('wsNetDeficit').textContent  = (deficit >= 0 ? '+' : '') + deficit.toLocaleString() + ' kcal';
+  document.getElementById('wsNetDeficit').style.color  = deficit >= 0 ? 'var(--green)' : 'var(--red)';
 
-  // Chart: weight per day (logged manually), fat %, ideal line
-  const wtData = dates.map(d => STATE.weekWeights[d]?.wt ?? null);
-  const fatData = dates.map(d => STATE.weekWeights[d]?.fat ?? null);
+  document.getElementById('weekChartTitle').textContent = 'Weight & Fat % — ' + (isCurrentWeek ? 'This Week' : rangeStr);
 
-  // Ideal: linear from currentWt toward finalGoal over 90 days from start of week
-  const startWt = STATE.currentWt;
-  const endWt = STATE.finalGoal;
-  const weekStart = dates[0];
-  const idealData = (startWt && endWt) ? dates.map((_,i) => {
-    return +(startWt - (startWt - endWt) * i / 90).toFixed(2);
-  }) : Array(7).fill(null);
+  const wtData    = dates.map(d => STATE.weekWeights[d]?.wt  ?? null);
+  const fatData   = dates.map(d => STATE.weekWeights[d]?.fat ?? null);
+  const startWt   = STATE.currentWt, endWt = STATE.finalGoal;
+  const idealData = (startWt && endWt)
+    ? dates.map((_,i) => +(startWt - (startWt - endWt) * i / 90).toFixed(2))
+    : Array(7).fill(null);
 
-  // Build chart labels with date
-  const chartLabels = dates.map((d,i) => {
-    const dd = new Date(d+'T00:00:00');
-    return dayLabels[i] + ' ' + dd.getDate();
-  });
+  const chartLabels = dates.map((d,i) => dayLabels[i]+' '+new Date(d+'T00:00:00').getDate());
 
   if (weekChartInst) weekChartInst.destroy();
   const ctx = document.getElementById('weekChart').getContext('2d');
@@ -1502,73 +1534,34 @@ function renderWeekTab() {
     data: {
       labels: chartLabels,
       datasets: [
-        {
-          label: 'Weight (kg)',
-          data: wtData,
-          borderColor: '#4a9eff',
-          backgroundColor: 'rgba(74,158,255,0.07)',
-          tension: 0.4,
-          pointBackgroundColor: dates.map(d => d <= today ? '#4a9eff' : '#4a9eff44'),
-          pointRadius: dates.map(d => wtData[dates.indexOf(d)] !== null ? 5 : 3),
-          spanGaps: true,
-          yAxisID: 'y'
-        },
-        {
-          label: 'Fat %',
-          data: fatData,
-          borderColor: '#c97a3a',
-          backgroundColor: 'transparent',
-          tension: 0.4,
-          pointBackgroundColor: '#c97a3a',
-          pointRadius: 4,
-          spanGaps: true,
-          yAxisID: 'y1'
-        },
-        {
-          label: 'Ideal (kg)',
-          data: idealData,
-          borderColor: '#4ecf88',
-          borderDash: [5,4],
-          backgroundColor: 'transparent',
-          tension: 0.3,
-          pointRadius: 0,
-          yAxisID: 'y'
-        }
+        { label:'Weight (kg)', data:wtData, borderColor:'#4a9eff', backgroundColor:'rgba(74,158,255,0.07)',
+          tension:0.4, pointBackgroundColor:'#4a9eff', pointRadius:5, spanGaps:true, yAxisID:'y' },
+        { label:'Fat %', data:fatData, borderColor:'#c97a3a', backgroundColor:'transparent',
+          tension:0.4, pointBackgroundColor:'#c97a3a', pointRadius:4, spanGaps:true, yAxisID:'y1' },
+        { label:'Ideal (kg)', data:idealData, borderColor:'#4ecf88', borderDash:[5,4],
+          backgroundColor:'transparent', tension:0.3, pointRadius:0, yAxisID:'y' }
       ]
     },
     options: {
       responsive: true,
-      interaction: { mode: 'index', intersect: false },
+      interaction: { mode:'index', intersect:false },
       plugins: {
-        legend: { display: false },
-        tooltip: {
-          callbacks: {
-            label: ctx => {
-              if (ctx.parsed.y === null) return null;
-              const u = ctx.datasetIndex === 1 ? '%' : ' kg';
-              return ctx.dataset.label + ': ' + ctx.parsed.y + u;
-            }
-          }
-        }
+        legend: { display:false },
+        tooltip: { callbacks: { label: c => c.parsed.y !== null ? c.dataset.label+': '+c.parsed.y+(c.datasetIndex===1?'%':' kg') : null } }
       },
       scales: {
-        x: { ticks: { color: '#7a6a56', font: { size: 10 } }, grid: { color: 'rgba(0,0,0,0.06)' } },
-        y: { position:'left', ticks: { color: '#4a9eff', font: { size: 10 } }, grid: { color: 'rgba(0,0,0,0.06)' }, title: { display: true, text: 'kg', color: '#4a9eff', font:{size:9} } },
-        y1: { position:'right', ticks: { color: '#c97a3a', font: { size: 10 } }, grid: { display: false }, title: { display: true, text: '%', color: '#c97a3a', font:{size:9} } }
+        x:  { ticks:{color:'#7a6a56',font:{size:10}}, grid:{color:'rgba(0,0,0,0.06)'} },
+        y:  { position:'left',  ticks:{color:'#4a9eff',font:{size:10}}, grid:{color:'rgba(0,0,0,0.06)'}, title:{display:true,text:'kg',color:'#4a9eff',font:{size:9}} },
+        y1: { position:'right', ticks:{color:'#c97a3a',font:{size:10}}, grid:{display:false},            title:{display:true,text:'%', color:'#c97a3a',font:{size:9}} }
       }
     }
   });
 
-  // Tap on chart → log weight/fat for that day
   document.getElementById('weekChart').onclick = function(e) {
-    const pts = weekChartInst.getElementsAtEventForMode(e, 'index', {intersect:false}, true);
-    if (pts.length) {
-      const idx = pts[0].index;
-      openWeekWeight(dates[idx], chartLabels[idx]);
-    }
+    const pts = weekChartInst.getElementsAtEventForMode(e,'index',{intersect:false},true);
+    if (pts.length) openWeekWeight(dates[pts[0].index], chartLabels[pts[0].index]);
   };
 
-  // Render per-day weight log row below chart
   renderWeekWeightRow(dates, chartLabels, today);
 }
 
@@ -1700,9 +1693,27 @@ function saveMilestone() {
   renderOverallTab();
 }
 
+function savePastWeight() {
+  const date = document.getElementById('pastWtDate').value;
+  const wt   = parseFloat(document.getElementById('pastWtVal').value);
+  const fat  = parseFloat(document.getElementById('pastFatVal').value);
+  if (!date) return;
+  if (!STATE.weekWeights[date]) STATE.weekWeights[date] = {};
+  if (!isNaN(wt))  { STATE.weekWeights[date].wt = wt;  STATE.currentWt = wt; }
+  if (!isNaN(fat)) { STATE.weekWeights[date].fat = fat; STATE.weekFat = fat; }
+  save();
+  document.getElementById('pastWtVal').value = '';
+  document.getElementById('pastFatVal').value = '';
+  renderOverallTab();
+}
+
 function renderOverallTab() {
   document.getElementById('currentWt').textContent = STATE.currentWt != null ? STATE.currentWt + ' kg' : '— kg';
   document.getElementById('finalGoal').textContent = STATE.finalGoal != null ? STATE.finalGoal + ' kg' : '— kg';
+
+  // Pre-fill today in past weight log
+  const pdInput = document.getElementById('pastWtDate');
+  if (!pdInput.value) pdInput.value = todayStr();
 
   // Mark done milestones
   if (STATE.currentWt && STATE.finalGoal) {
