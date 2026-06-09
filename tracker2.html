@@ -1,0 +1,1619 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Tracker 2</title>
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@300;400;500;600;700&family=DM+Mono:wght@300;400&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #f5f0e8;
+    --surface: #ede7da;
+    --surface2: #e4dcd0;
+    --border: #d5c9b8;
+    --text: #2e2318;
+    --text-dim: #7a6a56;
+    --text-muted: #b8a990;
+    --accent: #8b5e3c;
+    --accent2: #2a7abf;
+    --red: #c0392b;
+    --green: #2e7d52;
+    --hl-red: rgba(192,57,43,0.18);
+    --hl-gray: rgba(120,125,135,0.18);
+    --hl-blue: rgba(42,122,191,0.18);
+    --hl-red-solid: #c0392b;
+    --hl-gray-solid: #6b7280;
+    --hl-blue-solid: #2a7abf;
+    --radius: 14px;
+    --font-main: 'Nunito', sans-serif;
+    --font-mono: 'DM Mono', monospace;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-main);
+    min-height: 100vh;
+    max-width: 430px;
+    margin: 0 auto;
+    overflow-x: hidden;
+    position: relative;
+  }
+
+  /* ── TOP NAV ── */
+  .topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 18px 20px 0;
+  }
+  .topbar-title { font-size: 20px; font-weight: 800; letter-spacing: -0.5px; color: var(--accent); }
+  .topbar-title-input {
+    font-family: var(--font-main);
+    font-size: 20px;
+    font-weight: 800;
+    letter-spacing: -0.5px;
+    color: var(--accent);
+    background: transparent;
+    border: none;
+    outline: none;
+    width: 180px;
+    padding: 2px 4px;
+    border-radius: 6px;
+    transition: background 0.2s;
+  }
+  .topbar-title-input:focus {
+    background: rgba(139,94,60,0.1);
+  }
+
+  .cal-toggle {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text);
+    padding: 2px 0;
+    user-select: none;
+  }
+  .cal-toggle:active { opacity: 0.7; }
+  .topbar-date { font-family: var(--font-mono); font-size: 11px; color: var(--text-dim); }
+
+  /* ── TABS ── */
+  .tabs {
+    display: flex;
+    gap: 6px;
+    padding: 14px 20px 0;
+    position: sticky;
+    top: 0;
+    z-index: 50;
+    background: var(--bg);
+    padding-bottom: 10px;
+  }
+  .tab {
+    flex: 1;
+    text-align: center;
+    padding: 9px 0;
+    border-radius: 10px;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    cursor: pointer;
+    border: 1.5px solid var(--border);
+    color: var(--text-dim);
+    background: transparent;
+    transition: all 0.2s;
+    text-transform: uppercase;
+  }
+  .tab.active {
+    background: var(--accent);
+    color: #111;
+    border-color: var(--accent);
+  }
+
+  /* ── PAGES ── */
+  .page { display: none; padding: 12px 20px 120px; }
+  .page.active { display: block; }
+
+  /* ── REMAIN BLOCK ── */
+  .remain-block {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 18px 20px;
+    margin-bottom: 10px;
+    position: relative;
+  }
+  .remain-label { font-size: 10px; font-weight: 600; color: var(--text-dim); letter-spacing: 1.5px; text-transform: uppercase; margin-bottom: 4px; }
+  .remain-value {
+    font-family: var(--font-mono);
+    font-size: 44px;
+    font-weight: 500;
+    color: var(--accent);
+    line-height: 1;
+    cursor: pointer;
+  }
+  .remain-formula {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--text-dim);
+    margin-top: 6px;
+  }
+  .remain-formula span { color: var(--text); }
+
+  /* ── 3 MINI BLOCKS ── */
+  .mini-row { display: flex; gap: 8px; margin-bottom: 10px; }
+  .mini-block {
+    flex: 1;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 13px 12px;
+    cursor: pointer;
+    transition: border-color 0.2s;
+  }
+  .mini-block:active { border-color: var(--accent); }
+  .mini-label { font-size: 9px; font-weight: 700; color: var(--text-dim); letter-spacing: 1.2px; text-transform: uppercase; margin-bottom: 5px; }
+  .mini-values { font-family: var(--font-mono); font-size: 13px; color: var(--text); }
+  .mini-values .cur { color: var(--accent); font-size: 15px; }
+  .mini-values .sep { color: var(--text-muted); }
+  .mini-values .goal { color: var(--text-dim); }
+  .mini-block.burn .cur { color: #ff8c4a; }
+  .mini-block.water .cur { color: var(--accent2); }
+
+  /* ── HISTORY LIST ── */
+  .section-label {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 1.5px;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    margin: 16px 0 8px;
+  }
+  .history-item {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 13px 15px;
+    margin-bottom: 7px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    position: relative;
+    overflow: hidden;
+  }
+  .history-item .hl-strip {
+    position: absolute;
+    left: 0; top: 0; bottom: 0;
+    width: 4px;
+  }
+  .history-item .h-icon { font-size: 18px; flex-shrink: 0; }
+  .history-item .h-info { flex: 1; min-width: 0; }
+  .history-item .h-title { font-size: 13px; font-weight: 600; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .history-item .h-sub { font-size: 11px; color: var(--text-dim); font-family: var(--font-mono); margin-top: 2px; }
+  .history-item .h-kcal { font-family: var(--font-mono); font-size: 13px; font-weight: 500; text-align: right; flex-shrink: 0; }
+  .h-kcal.intake { color: var(--red); }
+  .h-kcal.burn { color: #ff8c4a; }
+
+  /* ── HIGHLIGHT CALENDAR STRIP ── */
+  .cal-strip {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 12px 14px;
+    margin-bottom: 10px;
+  }
+  .cal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 10px;
+  }
+  .cal-month { font-size: 13px; font-weight: 700; }
+  .cal-nav { background: none; border: none; color: var(--text-dim); font-size: 16px; cursor: pointer; padding: 4px 8px; }
+  .cal-days-header {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    text-align: center;
+    font-size: 9px;
+    color: var(--text-dim);
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    margin-bottom: 6px;
+  }
+  .cal-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 2px;
+  }
+  .cal-cell {
+    aspect-ratio: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    border-radius: 7px;
+    cursor: pointer;
+    color: var(--text-dim);
+    position: relative;
+    transition: all 0.15s;
+  }
+  .cal-cell.today { color: var(--accent); font-weight: 700; border: 1.5px solid var(--accent); }
+  .cal-cell.selected { background: var(--accent); color: #111; font-weight: 700; }
+  .cal-cell.hl-red { background: var(--hl-red); color: var(--hl-red-solid); }
+  .cal-cell.hl-gray { background: var(--hl-gray); color: var(--hl-gray-solid); }
+  .cal-cell.hl-blue { background: var(--hl-blue); color: var(--hl-blue-solid); }
+  .cal-cell:active { transform: scale(0.9); }
+  .cal-cell.empty { cursor: default; }
+
+  /* ── HIGHLIGHT TOOLTIP ── */
+  .hl-tooltip {
+    position: fixed;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 8px 12px;
+    font-size: 11px;
+    color: var(--text);
+    z-index: 200;
+    pointer-events: none;
+    display: none;
+    max-width: 160px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+  }
+  .hl-tooltip .tt-type { font-size: 9px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 3px; }
+
+  /* ── HIGHLIGHT LEGEND ── */
+  .hl-legend {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 8px;
+    flex-wrap: wrap;
+  }
+  .hl-pill {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    padding: 5px 10px;
+    border-radius: 20px;
+    font-size: 10px;
+    font-weight: 600;
+    cursor: pointer;
+    border: 1.5px solid transparent;
+    transition: all 0.15s;
+  }
+  .hl-pill.red { background: var(--hl-red); color: var(--hl-red-solid); border-color: var(--hl-red-solid); }
+  .hl-pill.gray { background: var(--hl-gray); color: var(--hl-gray-solid); border-color: var(--hl-gray-solid); }
+  .hl-pill.blue { background: var(--hl-blue); color: var(--hl-blue-solid); border-color: var(--hl-blue-solid); }
+  .hl-pill .dot { width: 7px; height: 7px; border-radius: 50%; }
+  .hl-pill.red .dot { background: var(--hl-red-solid); }
+  .hl-pill.gray .dot { background: var(--hl-gray-solid); }
+  .hl-pill.blue .dot { background: var(--hl-blue-solid); }
+
+  /* ── WEEK TAB ── */
+  .week-top { display: flex; gap: 8px; margin-bottom: 12px; }
+  .week-kpi {
+    flex: 1;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 14px 13px;
+  }
+  .week-kpi-label { font-size: 9px; font-weight: 700; letter-spacing: 1.2px; text-transform: uppercase; color: var(--text-dim); margin-bottom: 5px; }
+  .week-kpi-value { font-family: var(--font-mono); font-size: 20px; color: var(--text); cursor: pointer; }
+  .week-kpi-value.green { color: var(--green); }
+  .week-kpi.fat { border-color: #ff8c4a44; }
+  .week-kpi.fat .week-kpi-value { color: #ff8c4a; }
+
+  .chart-box {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 16px 14px;
+    margin-bottom: 10px;
+  }
+  .chart-title { font-size: 10px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: var(--text-dim); margin-bottom: 12px; }
+  canvas { width: 100% !important; }
+
+  .week-legend { display: flex; gap: 14px; margin-top: 10px; }
+  .wleg { display: flex; align-items: center; gap: 5px; font-size: 10px; color: var(--text-dim); }
+  .wleg-dot { width: 10px; height: 3px; border-radius: 2px; }
+  .wleg-dot.wt { background: var(--accent2); }
+  .wleg-dot.fat { background: #ff8c4a; }
+  .wleg-dot.ideal { background: var(--green); }
+
+  .week-summary {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 15px;
+  }
+  .ws-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .ws-row:last-child { border-bottom: none; }
+  .ws-label { font-size: 12px; color: var(--text-dim); }
+  .ws-val { font-family: var(--font-mono); font-size: 13px; color: var(--text); }
+
+  /* ── OVERALL TAB ── */
+  .goal-header {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 16px;
+    margin-bottom: 10px;
+  }
+  .goal-current { display: flex; justify-content: space-between; align-items: flex-end; }
+  .gc-label { font-size: 10px; color: var(--text-dim); font-weight: 600; letter-spacing: 1px; text-transform: uppercase; }
+  .gc-val { font-family: var(--font-mono); font-size: 28px; color: var(--green); cursor: pointer; }
+  .gc-goal { font-family: var(--font-mono); font-size: 13px; color: var(--text-dim); }
+
+  .milestone-list { margin-top: 10px; }
+  .milestone {
+    display: flex;
+    gap: 12px;
+    align-items: flex-start;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .milestone:last-child { border-bottom: none; }
+  .ms-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    margin-top: 3px;
+    flex-shrink: 0;
+  }
+  .ms-dot.done { background: var(--green); }
+  .ms-dot.current { background: var(--accent); box-shadow: 0 0 0 3px rgba(240,192,64,0.2); }
+  .ms-dot.future { background: var(--border); }
+  .ms-info { flex: 1; }
+  .ms-title { font-size: 13px; font-weight: 600; }
+  .ms-title.done { color: var(--green); text-decoration: line-through; opacity: 0.6; }
+  .ms-title.current { color: var(--accent); }
+  .ms-title.future { color: var(--text-dim); }
+  .ms-by { font-family: var(--font-mono); font-size: 10px; color: var(--text-dim); margin-top: 2px; }
+  .ms-edit { background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 13px; padding: 2px 6px; }
+
+  /* ── FLOATING BUTTONS ── */
+  .fab-group {
+    position: fixed;
+    bottom: 28px;
+    right: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    z-index: 100;
+  }
+  .fab {
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    border: none;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 20px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+    transition: transform 0.15s, box-shadow 0.15s;
+  }
+  .fab:active { transform: scale(0.92); }
+  .fab-add { background: var(--accent); color: #111; }
+  .fab-edit { background: var(--surface2); color: var(--text); border: 1.5px solid var(--border); }
+
+  /* ── MODAL ── */
+  .modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.7);
+    z-index: 300;
+    display: none;
+    align-items: flex-end;
+    backdrop-filter: blur(4px);
+  }
+  .modal-overlay.open { display: flex; }
+  .modal {
+    background: var(--surface);
+    border-radius: 20px 20px 0 0;
+    padding: 24px 20px 40px;
+    width: 100%;
+    max-height: 90vh;
+    overflow-y: auto;
+    border-top: 1px solid var(--border);
+  }
+  .modal-handle { width: 36px; height: 4px; background: var(--border); border-radius: 2px; margin: 0 auto 20px; }
+  .modal-title { font-size: 17px; font-weight: 800; margin-bottom: 20px; }
+
+  .form-group { margin-bottom: 16px; }
+  .form-label { font-size: 10px; font-weight: 700; letter-spacing: 1.2px; text-transform: uppercase; color: var(--text-dim); margin-bottom: 7px; display: block; }
+  .form-input {
+    width: 100%;
+    background: var(--surface2);
+    border: 1.5px solid var(--border);
+    border-radius: 10px;
+    padding: 12px 14px;
+    color: var(--text);
+    font-family: var(--font-main);
+    font-size: 14px;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  .form-input:focus { border-color: var(--accent); }
+  .form-row { display: flex; gap: 10px; }
+  .form-row .form-group { flex: 1; }
+
+  .type-toggle { display: flex; gap: 6px; }
+  .type-btn {
+    flex: 1;
+    padding: 10px;
+    border-radius: 9px;
+    border: 1.5px solid var(--border);
+    background: transparent;
+    color: var(--text-dim);
+    font-family: var(--font-main);
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .type-btn.active { border-color: var(--accent); background: rgba(240,192,64,0.12); color: var(--accent); }
+  .type-btn.burn-active { border-color: #ff8c4a; background: rgba(255,140,74,0.12); color: #ff8c4a; }
+  .type-btn.water-active { border-color: var(--accent2); background: rgba(74,158,255,0.12); color: var(--accent2); }
+
+  .modal-actions { display: flex; gap: 10px; margin-top: 20px; }
+  .btn-cancel {
+    flex: 1;
+    padding: 13px;
+    border-radius: 12px;
+    border: 1.5px solid var(--border);
+    background: transparent;
+    color: var(--text-dim);
+    font-family: var(--font-main);
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+  }
+  .btn-ok {
+    flex: 2;
+    padding: 13px;
+    border-radius: 12px;
+    border: none;
+    background: var(--accent);
+    color: #111;
+    font-family: var(--font-main);
+    font-size: 14px;
+    font-weight: 800;
+    cursor: pointer;
+    transition: opacity 0.15s;
+  }
+  .btn-ok:active { opacity: 0.8; }
+
+  /* ── EDIT LIST MODAL ── */
+  .edit-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .edit-item:last-child { border-bottom: none; }
+  .edit-item-info { flex: 1; }
+  .edit-item-title { font-size: 13px; font-weight: 600; }
+  .edit-item-sub { font-size: 11px; color: var(--text-dim); font-family: var(--font-mono); margin-top: 2px; }
+  .btn-icon { background: none; border: none; cursor: pointer; padding: 5px; font-size: 15px; }
+  .btn-icon.del { color: var(--red); }
+  .btn-icon.edit { color: var(--text-dim); }
+
+  /* ── HIGHLIGHT COLOR SELECT ── */
+  .hl-select { display: flex; gap: 8px; }
+  .hl-opt {
+    flex: 1;
+    padding: 9px 6px;
+    border-radius: 9px;
+    border: 1.5px solid transparent;
+    font-size: 11px;
+    font-weight: 600;
+    cursor: pointer;
+    text-align: center;
+    transition: all 0.15s;
+  }
+  .hl-opt.red { background: var(--hl-red); color: var(--hl-red-solid); }
+  .hl-opt.gray { background: var(--hl-gray); color: var(--hl-gray-solid); }
+  .hl-opt.blue { background: var(--hl-blue); color: var(--hl-blue-solid); }
+  .hl-opt.none { background: var(--surface2); color: var(--text-dim); border-color: var(--border); }
+  .hl-opt.active { border-color: currentColor; }
+
+  /* ── EDITABLE INLINE ── */
+  [contenteditable] { outline: none; border-bottom: 1px dashed var(--border); cursor: text; }
+  [contenteditable]:focus { border-bottom-color: var(--accent); }
+
+  /* ── GOAL CHART ── */
+  .overall-chart-box {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 16px 14px;
+    margin-bottom: 12px;
+  }
+
+  /* scrollbar */
+  ::-webkit-scrollbar { width: 3px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--text-muted); border-radius: 10px; }
+
+  .empty-state { text-align: center; padding: 32px 0; color: var(--text-muted); font-size: 13px; }
+
+  .tag-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 8px;
+    border-radius: 20px;
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+  }
+  .tag-chip.food { background: rgba(220,80,80,0.15); color: var(--red); }
+  .tag-chip.exercise { background: rgba(255,140,74,0.15); color: #ff8c4a; }
+  .tag-chip.water { background: rgba(74,158,255,0.15); color: var(--accent2); }
+
+  .editable-field {
+    cursor: pointer;
+    padding: 2px 4px;
+    border-radius: 4px;
+    transition: background 0.15s;
+  }
+  .editable-field:hover { background: rgba(240,192,64,0.1); }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <input class="topbar-title-input" id="trackerTitle" value="TRACKER 2" onblur="saveTitle()" onkeydown="if(event.key==='Enter')this.blur()">
+  <div class="topbar-date" id="topbarDate"></div>
+</div>
+
+<div class="tabs">
+  <button class="tab active" onclick="switchTab('today')">Today</button>
+  <button class="tab" onclick="switchTab('week')">This Week</button>
+  <button class="tab" onclick="switchTab('overall')">Overall</button>
+</div>
+
+<!-- ════════════════════ TODAY TAB ════════════════════ -->
+<div class="page active" id="page-today">
+
+  <!-- Calendar strip — collapsed by default -->
+  <div class="cal-strip" id="calStrip">
+    <div class="cal-toggle" onclick="toggleCal()" id="calToggleBtn">
+      <span id="calToggleLabel">📅 <span id="calSelectedDisplay"></span></span>
+      <span id="calChevron" style="transition:transform 0.25s;display:inline-block;">›</span>
+    </div>
+    <div id="calBody" style="display:none;margin-top:10px;">
+      <div class="cal-header">
+        <button class="cal-nav" onclick="calNav(-1)">‹</button>
+        <div class="cal-month" id="calMonthLabel"></div>
+        <button class="cal-nav" onclick="calNav(1)">›</button>
+      </div>
+      <div class="cal-days-header">
+        <span>Su</span><span>Mo</span><span>Tu</span><span>We</span><span>Th</span><span>Fr</span><span>Sa</span>
+      </div>
+      <div class="cal-grid" id="calGrid"></div>
+      <!-- Highlight legend -->
+      <div class="hl-legend" style="margin-top:10px;">
+        <div class="hl-pill red" onclick="setHlMode('red')"><span class="dot"></span> Period</div>
+        <div class="hl-pill gray" onclick="setHlMode('gray')"><span class="dot"></span> Sick / Rest</div>
+        <div class="hl-pill blue" onclick="setHlMode('blue')"><span class="dot"></span> Trip / Event</div>
+      </div>
+      <div id="hlModeStatus" style="font-size:10px;color:var(--text-dim);margin-top:6px;display:none;"></div>
+    </div>
+  </div>
+
+  <!-- Remain block -->
+  <div class="remain-block">
+    <div class="remain-label">Today's Remaining</div>
+    <div class="remain-value" id="remainValue" onclick="editFixed()">—</div>
+    <div class="remain-formula">
+      <span id="fixedVal">1800</span> (fixed) + <span id="burnTotal">0</span> (burn) − <span id="intakeTotal">0</span> (intake)
+    </div>
+  </div>
+
+  <!-- 3 mini blocks -->
+  <div class="mini-row">
+    <div class="mini-block burn">
+      <div class="mini-label">Burn</div>
+      <div class="mini-values">
+        <span class="cur" id="burnCur">0</span><span class="sep"> / </span><span class="goal" id="burnGoal">500</span>
+      </div>
+    </div>
+    <div class="mini-block intake">
+      <div class="mini-label">Intake</div>
+      <div class="mini-values">
+        <span class="cur" id="intakeCur">0</span><span class="sep"> / </span><span class="goal" id="intakeGoal">1800</span>
+      </div>
+    </div>
+    <div class="mini-block water">
+      <div class="mini-label">Water</div>
+      <div class="mini-values">
+        <span class="cur" id="waterCur">0</span><span class="sep"> / </span><span class="goal" id="waterGoal">2000</span><span style="font-size:9px;color:var(--text-dim)">ml</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- History -->
+  <div class="section-label" id="historyDateLabel">Records</div>
+  <div id="historyList"></div>
+</div>
+
+<!-- ════════════════════ WEEK TAB ════════════════════ -->
+<div class="page" id="page-week">
+  <div class="week-top">
+    <div class="week-kpi">
+      <div class="week-kpi-label">Week Aim</div>
+      <div class="week-kpi-value" id="weekAim" onclick="editWeekAim()">−2,100</div>
+      <div style="font-size:10px;color:var(--text-dim);margin-top:2px;">kcal deficit</div>
+    </div>
+    <div class="week-kpi">
+      <div class="week-kpi-label">Current</div>
+      <div class="week-kpi-value green" id="weekCurrent">0</div>
+      <div style="font-size:10px;color:var(--text-dim);margin-top:2px;">kcal deficit</div>
+    </div>
+    <div class="week-kpi fat">
+      <div class="week-kpi-label">Body Fat</div>
+      <div class="week-kpi-value" id="weekFat" onclick="editWeekFat()">—%</div>
+    </div>
+  </div>
+
+  <div class="chart-box">
+    <div class="chart-title">Weight & Fat % — This Week</div>
+    <canvas id="weekChart" height="180"></canvas>
+    <div class="week-legend">
+      <div class="wleg"><div class="wleg-dot wt"></div> Weight (kg)</div>
+      <div class="wleg"><div class="wleg-dot fat"></div> Fat %</div>
+      <div class="wleg"><div class="wleg-dot ideal"></div> Ideal</div>
+    </div>
+  </div>
+
+  <div class="chart-box">
+    <div class="chart-title">Weekly Summary</div>
+    <div class="week-summary">
+      <div class="ws-row"><span class="ws-label">Total Intake</span><span class="ws-val" id="wsTotalIntake">0 kcal</span></div>
+      <div class="ws-row"><span class="ws-label">Total Burn</span><span class="ws-val" id="wsTotalBurn">0 kcal</span></div>
+      <div class="ws-row"><span class="ws-label">Total Water</span><span class="ws-val" id="wsTotalWater">0 ml</span></div>
+      <div class="ws-row"><span class="ws-label">Net Deficit</span><span class="ws-val" id="wsNetDeficit" style="color:var(--green)">0 kcal</span></div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════ OVERALL TAB ════════════════════ -->
+<div class="page" id="page-overall">
+  <div class="goal-header">
+    <div class="goal-current">
+      <div>
+        <div class="gc-label">Current Weight</div>
+        <div class="gc-val" id="currentWt" onclick="editCurrentWt()">— kg</div>
+      </div>
+      <div style="text-align:right">
+        <div class="gc-label">Final Goal</div>
+        <div class="gc-goal" id="finalGoal" onclick="editFinalGoal()">— kg</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="overall-chart-box">
+    <div class="chart-title">Weight Journey</div>
+    <canvas id="overallChart" height="200"></canvas>
+  </div>
+
+  <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:16px;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+      <div class="chart-title" style="margin:0;">Milestones</div>
+      <button onclick="openAddMilestone()" style="background:rgba(240,192,64,0.12);border:1px solid var(--accent);color:var(--accent);font-family:var(--font-main);font-size:11px;font-weight:700;padding:5px 12px;border-radius:8px;cursor:pointer;">+ ADD</button>
+    </div>
+    <div class="milestone-list" id="milestoneList"></div>
+  </div>
+</div>
+
+<!-- ════════════════════ FAB ════════════════════ -->
+<div class="fab-group">
+  <button class="fab fab-edit" onclick="openEditModal()" title="Edit records">✎</button>
+  <button class="fab fab-add" onclick="openAddModal()" title="Add record">+</button>
+</div>
+
+<!-- ════════════════════ HIGHLIGHT TOOLTIP ════════════════════ -->
+<div class="hl-tooltip" id="hlTooltip">
+  <div class="tt-type" id="ttType"></div>
+  <div id="ttText"></div>
+</div>
+
+<!-- ════════════════════ ADD MODAL ════════════════════ -->
+<div class="modal-overlay" id="addModal">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-title">Add Record</div>
+
+    <div class="form-group">
+      <label class="form-label">Date</label>
+      <input type="date" class="form-input" id="addDate">
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Type</label>
+      <div class="type-toggle">
+        <button class="type-btn active" onclick="setType('food',this)">🍱 Food</button>
+        <button class="type-btn" onclick="setType('exercise',this)">🏃 Exercise</button>
+        <button class="type-btn" onclick="setType('water',this)">💧 Water</button>
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Name / Content</label>
+      <input type="text" class="form-input" id="addName" placeholder="e.g. Chicken rice, Running 5km…">
+    </div>
+
+    <div id="kcalGroup" class="form-group">
+      <label class="form-label" id="kcalLabel">Calories (kcal)</label>
+      <input type="number" class="form-input" id="addKcal" placeholder="0">
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeModal('addModal')">Cancel</button>
+      <button class="btn-ok" onclick="submitAdd()">OK</button>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════ EDIT MODAL ════════════════════ -->
+<div class="modal-overlay" id="editModal">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-title">Edit Records</div>
+    <div id="editList"></div>
+    <div style="height:10px"></div>
+    <button class="btn-cancel" onclick="closeModal('editModal')" style="width:100%;padding:13px;border-radius:12px;">Close</button>
+  </div>
+</div>
+
+<!-- ════════════════════ EDIT SINGLE MODAL ════════════════════ -->
+<div class="modal-overlay" id="editSingleModal">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-title">Edit Entry</div>
+    <input type="hidden" id="editId">
+
+    <div class="form-group">
+      <label class="form-label">Name / Content</label>
+      <input type="text" class="form-input" id="editName">
+    </div>
+    <div id="editKcalGroup" class="form-group">
+      <label class="form-label" id="editKcalLabel">Calories (kcal)</label>
+      <input type="number" class="form-input" id="editKcal">
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeModal('editSingleModal')">Cancel</button>
+      <button class="btn-ok" onclick="submitEdit()">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════ FIXED EDIT MODAL ════════════════════ -->
+<div class="modal-overlay" id="fixedModal">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-title">Edit Base Settings</div>
+    <div class="form-group">
+      <label class="form-label">Fixed Calories (BMR)</label>
+      <input type="number" class="form-input" id="fixedInput">
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Burn Goal</label>
+        <input type="number" class="form-input" id="burnGoalInput">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Intake Goal</label>
+        <input type="number" class="form-input" id="intakeGoalInput">
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Water Goal (ml)</label>
+      <input type="number" class="form-input" id="waterGoalInput">
+    </div>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeModal('fixedModal')">Cancel</button>
+      <button class="btn-ok" onclick="saveFixed()">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════ HIGHLIGHT MODAL ════════════════════ -->
+<div class="modal-overlay" id="hlModal">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-title" id="hlModalTitle">Highlight Day</div>
+    <div class="form-group">
+      <label class="form-label">Type</label>
+      <div class="hl-select">
+        <div class="hl-opt red active" onclick="selectHlType('red',this)">Period</div>
+        <div class="hl-opt gray" onclick="selectHlType('gray',this)">Sick/Rest</div>
+        <div class="hl-opt blue" onclick="selectHlType('blue',this)">Trip/Event</div>
+        <div class="hl-opt none" onclick="selectHlType('none',this)">None</div>
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Note (optional)</label>
+      <input type="text" class="form-input" id="hlNote" placeholder="e.g. Singapore trip, Day 1 of period…">
+    </div>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeModal('hlModal')">Cancel</button>
+      <button class="btn-ok" onclick="saveHighlight()">Apply</button>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════ MILESTONE MODAL ════════════════════ -->
+<div class="modal-overlay" id="milestoneModal">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-title" id="msModalTitle">Add Milestone</div>
+    <input type="hidden" id="msEditId">
+    <div class="form-group">
+      <label class="form-label">Target Weight (kg)</label>
+      <input type="number" class="form-input" id="msWt" placeholder="e.g. 58.0" step="0.1">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Target Date</label>
+      <input type="date" class="form-input" id="msDate">
+    </div>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeModal('milestoneModal')">Cancel</button>
+      <button class="btn-ok" onclick="saveMilestone()">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════ WEEK VALUES MODAL ════════════════════ -->
+<div class="modal-overlay" id="weekModal">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-title" id="weekModalTitle">Edit Value</div>
+    <div class="form-group">
+      <label class="form-label" id="weekModalLabel">Value</label>
+      <input type="number" class="form-input" id="weekModalInput" step="0.1">
+    </div>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeModal('weekModal')">Cancel</button>
+      <button class="btn-ok" onclick="saveWeekModal()">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════ CURRENT WT MODAL ════════════════════ -->
+<div class="modal-overlay" id="wtModal">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-title">Edit Current Weight</div>
+    <div class="form-group">
+      <label class="form-label">Weight (kg)</label>
+      <input type="number" class="form-input" id="wtInput" step="0.1">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Final Goal (kg)</label>
+      <input type="number" class="form-input" id="goalInput" step="0.1">
+    </div>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeModal('wtModal')">Cancel</button>
+      <button class="btn-ok" onclick="saveWt()">Save</button>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<script>
+// ══════════════════════════════════════
+// STATE
+// ══════════════════════════════════════
+const STATE = {
+  fixed: 1800,
+  burnGoal: 500,
+  intakeGoal: 1800,
+  waterGoal: 2000,
+  currentWt: null,
+  finalGoal: null,
+  weekAim: -2100,
+  weekFat: null,
+  records: [],          // {id, date, type, name, kcal}
+  highlights: {},       // { "YYYY-MM-DD": {type, note} }
+  weekWeights: {},      // { "YYYY-MM-DD": {wt, fat} }
+  milestones: []        // {id, wt, date, done}
+};
+
+let selectedDate = todayStr();
+let currentCalMonth = new Date();
+let weekChartInst = null;
+let overallChartInst = null;
+let currentTab = 'today';
+let weekModalMode = '';
+
+function todayStr() {
+  return new Date().toISOString().slice(0,10);
+}
+function fmtDate(d) {
+  const opts = { month:'short', day:'numeric' };
+  return new Date(d+'T00:00:00').toLocaleDateString('en-US', opts);
+}
+function save() {
+  try { localStorage.setItem('t2_state', JSON.stringify(STATE)); } catch(e) {}
+}
+function load() {
+  try {
+    const s = localStorage.getItem('t2_state');
+    if (s) Object.assign(STATE, JSON.parse(s));
+  } catch(e) {}
+}
+
+// ══════════════════════════════════════
+// TABS
+// ══════════════════════════════════════
+function switchTab(t) {
+  currentTab = t;
+  document.querySelectorAll('.tab').forEach((el,i) => {
+    el.classList.toggle('active', ['today','week','overall'][i] === t);
+  });
+  document.querySelectorAll('.page').forEach(el => el.classList.remove('active'));
+  document.getElementById('page-'+t).classList.add('active');
+  if (t === 'week') renderWeekTab();
+  if (t === 'overall') renderOverallTab();
+}
+
+// ══════════════════════════════════════
+// CALENDAR
+// ══════════════════════════════════════
+function calNav(dir) {
+  currentCalMonth = new Date(currentCalMonth.getFullYear(), currentCalMonth.getMonth() + dir, 1);
+  renderCal();
+}
+
+function renderCal() {
+  const y = currentCalMonth.getFullYear();
+  const m = currentCalMonth.getMonth();
+  const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  document.getElementById('calMonthLabel').textContent = months[m] + ' ' + y;
+
+  const first = new Date(y, m, 1).getDay();
+  const days = new Date(y, m+1, 0).getDate();
+  const today = todayStr();
+
+  let html = '';
+  for (let i = 0; i < first; i++) html += '<div class="cal-cell empty"></div>';
+  for (let d = 1; d <= days; d++) {
+    const ds = y+'-'+String(m+1).padStart(2,'0')+'-'+String(d).padStart(2,'0');
+    const hl = STATE.highlights[ds];
+    let cls = 'cal-cell';
+    if (ds === today) cls += ' today';
+    if (ds === selectedDate) cls += ' selected';
+    if (hl) cls += ' hl-'+hl.type;
+    html += `<div class="${cls}" 
+      data-date="${ds}"
+      onclick="selectDay('${ds}')"
+      onmouseenter="showTooltip(event,'${ds}')"
+      onmouseleave="hideTooltip()"
+      ontouchstart="touchHL(event,'${ds}')"
+      ontouchend="hideTooltip()"
+    >${d}</div>`;
+  }
+  document.getElementById('calGrid').innerHTML = html;
+}
+
+let hlMode = null;
+function setHlMode(color) {
+  hlMode = hlMode === color ? null : color;
+  const s = document.getElementById('hlModeStatus');
+  if (hlMode) {
+    s.style.display = 'block';
+    s.textContent = `Tap a day to mark as: ${hlMode}. Tap again to deselect mode.`;
+  } else {
+    s.style.display = 'none';
+  }
+}
+
+function selectDay(ds) {
+  if (hlMode) {
+    openHlModal(ds);
+    return;
+  }
+  selectedDate = ds;
+  renderCal();
+  renderToday();
+}
+
+let hlModalDate = '';
+function openHlModal(ds) {
+  hlModalDate = ds;
+  const hl = STATE.highlights[ds];
+  document.getElementById('hlModalTitle').textContent = 'Highlight: ' + fmtDate(ds);
+  document.getElementById('hlNote').value = hl ? hl.note || '' : '';
+  
+  document.querySelectorAll('.hl-opt').forEach(el => el.classList.remove('active'));
+  const sel = hl ? hl.type : 'red';
+  const match = document.querySelector('.hl-opt.'+sel);
+  if (match) match.classList.add('active');
+  currentHlType = sel;
+  
+  openModal('hlModal');
+}
+
+let currentHlType = 'red';
+function selectHlType(t, el) {
+  currentHlType = t;
+  document.querySelectorAll('.hl-opt').forEach(x => x.classList.remove('active'));
+  el.classList.add('active');
+}
+function saveHighlight() {
+  if (currentHlType === 'none') {
+    delete STATE.highlights[hlModalDate];
+  } else {
+    STATE.highlights[hlModalDate] = { type: currentHlType, note: document.getElementById('hlNote').value };
+  }
+  save();
+  renderCal();
+  closeModal('hlModal');
+}
+
+function showTooltip(e, ds) {
+  const hl = STATE.highlights[ds];
+  if (!hl) return;
+  const labels = { red:'Period', gray:'Sick / Rest', blue:'Trip / Event' };
+  const tt = document.getElementById('hlTooltip');
+  document.getElementById('ttType').textContent = labels[hl.type] || '';
+  document.getElementById('ttText').textContent = hl.note || '(no note)';
+  tt.style.display = 'block';
+  const r = e.target.getBoundingClientRect();
+  tt.style.left = Math.min(r.left, window.innerWidth - 170) + 'px';
+  tt.style.top = (r.bottom + 6) + 'px';
+}
+function touchHL(e, ds) {
+  const hl = STATE.highlights[ds];
+  if (!hl) return;
+  showTooltip(e.touches[0], ds);
+  setTimeout(hideTooltip, 1800);
+}
+function hideTooltip() { document.getElementById('hlTooltip').style.display = 'none'; }
+
+// ══════════════════════════════════════
+// TODAY
+// ══════════════════════════════════════
+function renderToday() {
+  const recs = STATE.records.filter(r => r.date === selectedDate);
+  
+  const burnTotal = recs.filter(r => r.type === 'exercise').reduce((s,r) => s + (r.kcal||0), 0);
+  const intakeTotal = recs.filter(r => r.type === 'food').reduce((s,r) => s + (r.kcal||0), 0);
+  const waterTotal = recs.filter(r => r.type === 'water').reduce((s,r) => s + (r.kcal||0), 0);
+
+  const remain = STATE.fixed + burnTotal - intakeTotal;
+  document.getElementById('remainValue').textContent = remain >= 0 ? remain : remain;
+  document.getElementById('remainValue').style.color = remain >= 0 ? 'var(--accent)' : 'var(--red)';
+  document.getElementById('fixedVal').textContent = STATE.fixed;
+  document.getElementById('burnTotal').textContent = burnTotal;
+  document.getElementById('intakeTotal').textContent = intakeTotal;
+
+  document.getElementById('burnCur').textContent = burnTotal;
+  document.getElementById('burnGoal').textContent = STATE.burnGoal;
+  document.getElementById('intakeCur').textContent = intakeTotal;
+  document.getElementById('intakeGoal').textContent = STATE.intakeGoal;
+  document.getElementById('waterCur').textContent = waterTotal;
+  document.getElementById('waterGoal').textContent = STATE.waterGoal;
+
+  document.getElementById('historyDateLabel').textContent = 'Records — ' + fmtDate(selectedDate);
+
+  const list = document.getElementById('historyList');
+  if (recs.length === 0) {
+    list.innerHTML = '<div class="empty-state">No records for this day.<br>Tap + to add one.</div>';
+    return;
+  }
+
+  list.innerHTML = recs.map(r => {
+    const icon = r.type === 'food' ? '🍱' : r.type === 'exercise' ? '🏃' : '💧';
+    const kcalLabel = r.type === 'water' ? `${r.kcal} ml` : `${r.kcal >= 0 ? '+' : ''}${r.kcal} kcal`;
+    const kcalColor = r.type === 'food' ? 'intake' : r.type === 'exercise' ? 'burn' : '';
+    const tag = `<span class="tag-chip ${r.type}">${r.type}</span>`;
+    return `<div class="history-item">
+      <div class="h-icon">${icon}</div>
+      <div class="h-info">
+        <div class="h-title">${r.name}</div>
+        <div class="h-sub">${tag} &nbsp;${r.date}</div>
+      </div>
+      <div class="h-kcal ${kcalColor}">${kcalLabel}</div>
+    </div>`;
+  }).join('');
+}
+
+// ══════════════════════════════════════
+// ADD RECORD
+// ══════════════════════════════════════
+let addType = 'food';
+function openAddModal() {
+  document.getElementById('addDate').value = selectedDate;
+  document.getElementById('addName').value = '';
+  document.getElementById('addKcal').value = '';
+  setType('food', document.querySelector('.type-btn'));
+  openModal('addModal');
+}
+function setType(t, el) {
+  addType = t;
+  document.querySelectorAll('.type-btn').forEach(b => { b.classList.remove('active','burn-active','water-active'); });
+  if (t === 'food') el.classList.add('active');
+  else if (t === 'exercise') el.classList.add('burn-active');
+  else el.classList.add('water-active');
+  
+  document.getElementById('kcalLabel').textContent = t === 'water' ? 'Amount (ml)' : 'Calories (kcal)';
+}
+function submitAdd() {
+  const name = document.getElementById('addName').value.trim();
+  const kcal = parseFloat(document.getElementById('addKcal').value) || 0;
+  const date = document.getElementById('addDate').value;
+  if (!name) { document.getElementById('addName').focus(); return; }
+  STATE.records.push({ id: Date.now(), date, type: addType, name, kcal });
+  save();
+  closeModal('addModal');
+  renderToday();
+  if (currentTab === 'week') renderWeekTab();
+}
+
+// ══════════════════════════════════════
+// EDIT RECORDS
+// ══════════════════════════════════════
+function openEditModal() {
+  const recs = STATE.records.filter(r => r.date === selectedDate);
+  const list = document.getElementById('editList');
+  if (recs.length === 0) {
+    list.innerHTML = '<div class="empty-state" style="padding:20px 0">No records for this day.</div>';
+  } else {
+    list.innerHTML = recs.map(r => {
+      const unit = r.type === 'water' ? 'ml' : 'kcal';
+      return `<div class="edit-item">
+        <div class="edit-item-info">
+          <div class="edit-item-title">${r.name}</div>
+          <div class="edit-item-sub">${r.kcal} ${unit} · ${r.type}</div>
+        </div>
+        <button class="btn-icon edit" onclick="openEditSingle(${r.id})">✎</button>
+        <button class="btn-icon del" onclick="deleteRecord(${r.id})">✕</button>
+      </div>`;
+    }).join('');
+  }
+  openModal('editModal');
+}
+function deleteRecord(id) {
+  if (!confirm('Remove this record?')) return;
+  STATE.records = STATE.records.filter(r => r.id !== id);
+  save();
+  openEditModal();
+  renderToday();
+}
+let editingId = null;
+function openEditSingle(id) {
+  editingId = id;
+  const r = STATE.records.find(x => x.id === id);
+  if (!r) return;
+  document.getElementById('editName').value = r.name;
+  document.getElementById('editKcal').value = r.kcal;
+  document.getElementById('editKcalLabel').textContent = r.type === 'water' ? 'Amount (ml)' : 'Calories (kcal)';
+  closeModal('editModal');
+  openModal('editSingleModal');
+}
+function submitEdit() {
+  const r = STATE.records.find(x => x.id === editingId);
+  if (!r) return;
+  r.name = document.getElementById('editName').value.trim() || r.name;
+  r.kcal = parseFloat(document.getElementById('editKcal').value) || 0;
+  save();
+  closeModal('editSingleModal');
+  renderToday();
+}
+
+// ══════════════════════════════════════
+// FIXED SETTINGS
+// ══════════════════════════════════════
+function editFixed() {
+  document.getElementById('fixedInput').value = STATE.fixed;
+  document.getElementById('burnGoalInput').value = STATE.burnGoal;
+  document.getElementById('intakeGoalInput').value = STATE.intakeGoal;
+  document.getElementById('waterGoalInput').value = STATE.waterGoal;
+  openModal('fixedModal');
+}
+function saveFixed() {
+  STATE.fixed = parseInt(document.getElementById('fixedInput').value) || 1800;
+  STATE.burnGoal = parseInt(document.getElementById('burnGoalInput').value) || 500;
+  STATE.intakeGoal = parseInt(document.getElementById('intakeGoalInput').value) || 1800;
+  STATE.waterGoal = parseInt(document.getElementById('waterGoalInput').value) || 2000;
+  save();
+  closeModal('fixedModal');
+  renderToday();
+}
+
+// ══════════════════════════════════════
+// WEEK TAB
+// ══════════════════════════════════════
+function getWeekDates() {
+  const today = new Date();
+  const day = today.getDay();
+  const monday = new Date(today);
+  monday.setDate(today.getDate() - ((day + 6) % 7));
+  return Array.from({length:7}, (_,i) => {
+    const d = new Date(monday);
+    d.setDate(monday.getDate() + i);
+    return d.toISOString().slice(0,10);
+  });
+}
+
+function editWeekAim() {
+  weekModalMode = 'aim';
+  document.getElementById('weekModalTitle').textContent = 'Week Calorie Aim';
+  document.getElementById('weekModalLabel').textContent = 'Deficit Target (kcal, negative)';
+  document.getElementById('weekModalInput').value = STATE.weekAim;
+  openModal('weekModal');
+}
+function editWeekFat() {
+  weekModalMode = 'fat';
+  document.getElementById('weekModalTitle').textContent = 'Current Body Fat';
+  document.getElementById('weekModalLabel').textContent = 'Body Fat %';
+  document.getElementById('weekModalInput').value = STATE.weekFat || '';
+  openModal('weekModal');
+}
+function saveWeekModal() {
+  const v = parseFloat(document.getElementById('weekModalInput').value);
+  if (weekModalMode === 'aim') { STATE.weekAim = v || -2100; }
+  if (weekModalMode === 'fat') { STATE.weekFat = v; }
+  save();
+  closeModal('weekModal');
+  renderWeekTab();
+}
+
+function renderWeekTab() {
+  const dates = getWeekDates();
+  const labels = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+
+  // Compute deficit
+  let totalIntake = 0, totalBurn = 0, totalWater = 0;
+  dates.forEach(d => {
+    const recs = STATE.records.filter(r => r.date === d);
+    totalIntake += recs.filter(r => r.type === 'food').reduce((s,r) => s + r.kcal, 0);
+    totalBurn += recs.filter(r => r.type === 'exercise').reduce((s,r) => s + r.kcal, 0);
+    totalWater += recs.filter(r => r.type === 'water').reduce((s,r) => s + r.kcal, 0);
+  });
+  const deficit = -(totalIntake - (STATE.fixed * dates.length + totalBurn));
+
+  document.getElementById('weekAim').textContent = STATE.weekAim.toLocaleString();
+  document.getElementById('weekCurrent').textContent = deficit.toLocaleString();
+  document.getElementById('weekFat').textContent = STATE.weekFat != null ? STATE.weekFat + '%' : '—%';
+
+  document.getElementById('wsTotalIntake').textContent = totalIntake + ' kcal';
+  document.getElementById('wsTotalBurn').textContent = totalBurn + ' kcal';
+  document.getElementById('wsTotalWater').textContent = totalWater + ' ml';
+  document.getElementById('wsNetDeficit').textContent = deficit.toLocaleString() + ' kcal';
+
+  // Chart data
+  const wtData = dates.map(d => STATE.weekWeights[d]?.wt || null);
+  const fatData = dates.map(d => STATE.weekWeights[d]?.fat || null);
+  
+  // Ideal weight: simple linear from first to end
+  const startWt = STATE.currentWt;
+  const endWt = STATE.finalGoal;
+  const idealData = startWt && endWt ? dates.map((_,i) => +(startWt - (startWt - endWt) * i / 90).toFixed(2)) : Array(7).fill(null);
+
+  if (weekChartInst) weekChartInst.destroy();
+  const ctx = document.getElementById('weekChart').getContext('2d');
+  weekChartInst = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [
+        {
+          label: 'Weight',
+          data: wtData,
+          borderColor: '#4a9eff',
+          backgroundColor: 'rgba(74,158,255,0.08)',
+          tension: 0.4,
+          pointBackgroundColor: '#4a9eff',
+          pointRadius: 4,
+          yAxisID: 'y'
+        },
+        {
+          label: 'Fat %',
+          data: fatData,
+          borderColor: '#ff8c4a',
+          backgroundColor: 'rgba(255,140,74,0.05)',
+          tension: 0.4,
+          pointBackgroundColor: '#ff8c4a',
+          pointRadius: 4,
+          yAxisID: 'y1'
+        },
+        {
+          label: 'Ideal',
+          data: idealData,
+          borderColor: '#4ecf88',
+          borderDash: [5,4],
+          backgroundColor: 'transparent',
+          tension: 0.3,
+          pointRadius: 0,
+          yAxisID: 'y'
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { ticks: { color: '#6b6f76', font: { size: 10 } }, grid: { color: '#2a2c30' } },
+        y: { position:'left', ticks: { color: '#4a9eff', font: { size: 10 } }, grid: { color: '#2a2c3055' } },
+        y1: { position:'right', ticks: { color: '#ff8c4a', font: { size: 10 } }, grid: { display: false } }
+      }
+    }
+  });
+
+  // Allow clicking chart to add weight for that day
+  document.getElementById('weekChart').onclick = function(e) {
+    const pts = weekChartInst.getElementsAtEventForMode(e, 'index', {intersect:false}, true);
+    if (pts.length) {
+      const idx = pts[0].index;
+      openWeekWeight(dates[idx], labels[idx]);
+    }
+  };
+}
+
+let weekWtDate = '';
+function openWeekWeight(ds, label) {
+  weekWtDate = ds;
+  weekModalMode = 'weight';
+  document.getElementById('weekModalTitle').textContent = 'Log Weight — ' + label;
+  document.getElementById('weekModalLabel').textContent = 'Weight (kg)';
+  document.getElementById('weekModalInput').value = STATE.weekWeights[ds]?.wt || '';
+  document.getElementById('weekModalInput').step = '0.1';
+  openModal('weekModal');
+}
+
+// Override save for weight mode
+const origSaveWeek = saveWeekModal;
+window.saveWeekModal = function() {
+  if (weekModalMode === 'weight') {
+    const v = parseFloat(document.getElementById('weekModalInput').value);
+    if (!isNaN(v)) {
+      if (!STATE.weekWeights[weekWtDate]) STATE.weekWeights[weekWtDate] = {};
+      STATE.weekWeights[weekWtDate].wt = v;
+      STATE.currentWt = v; // update current
+      save();
+    }
+    closeModal('weekModal');
+    renderWeekTab();
+    return;
+  }
+  origSaveWeek();
+};
+
+// ══════════════════════════════════════
+// OVERALL TAB
+// ══════════════════════════════════════
+function editCurrentWt() {
+  document.getElementById('wtInput').value = STATE.currentWt || '';
+  document.getElementById('goalInput').value = STATE.finalGoal || '';
+  openModal('wtModal');
+}
+function editFinalGoal() { editCurrentWt(); }
+function saveWt() {
+  STATE.currentWt = parseFloat(document.getElementById('wtInput').value) || null;
+  STATE.finalGoal = parseFloat(document.getElementById('goalInput').value) || null;
+  save();
+  closeModal('wtModal');
+  renderOverallTab();
+}
+
+let msEditId = null;
+function openAddMilestone() {
+  msEditId = null;
+  document.getElementById('msModalTitle').textContent = 'Add Milestone';
+  document.getElementById('msWt').value = '';
+  document.getElementById('msDate').value = '';
+  openModal('milestoneModal');
+}
+function saveMilestone() {
+  const wt = parseFloat(document.getElementById('msWt').value);
+  const date = document.getElementById('msDate').value;
+  if (!wt || !date) return;
+  if (msEditId) {
+    const m = STATE.milestones.find(x => x.id === msEditId);
+    if (m) { m.wt = wt; m.date = date; }
+  } else {
+    STATE.milestones.push({ id: Date.now(), wt, date, done: false });
+    STATE.milestones.sort((a,b) => a.date > b.date ? 1 : -1);
+  }
+  save();
+  closeModal('milestoneModal');
+  renderOverallTab();
+}
+
+function renderOverallTab() {
+  document.getElementById('currentWt').textContent = STATE.currentWt != null ? STATE.currentWt + ' kg' : '— kg';
+  document.getElementById('finalGoal').textContent = STATE.finalGoal != null ? STATE.finalGoal + ' kg' : '— kg';
+
+  // Mark done milestones
+  if (STATE.currentWt && STATE.finalGoal) {
+    STATE.milestones.forEach(m => {
+      const goingDown = STATE.finalGoal < (STATE.currentWt || 100);
+      m.done = goingDown ? STATE.currentWt <= m.wt : STATE.currentWt >= m.wt;
+    });
+  }
+
+  // Milestones list
+  const ml = document.getElementById('milestoneList');
+  if (STATE.milestones.length === 0) {
+    ml.innerHTML = '<div class="empty-state">No milestones yet. Add one above.</div>';
+  } else {
+    const today = todayStr();
+    let foundCurrent = false;
+    ml.innerHTML = STATE.milestones.map(m => {
+      let status = 'future';
+      if (m.done) status = 'done';
+      else if (!foundCurrent) { status = 'current'; foundCurrent = true; }
+      return `<div class="milestone">
+        <div class="ms-dot ${status}"></div>
+        <div class="ms-info">
+          <div class="ms-title ${status}">${m.wt} kg${status==='current'?' ← next':''}</div>
+          <div class="ms-by">by ${fmtDate(m.date)}</div>
+        </div>
+        <button class="ms-edit" onclick="editMilestone(${m.id})">✎</button>
+        <button class="ms-edit" style="color:var(--red)" onclick="deleteMilestone(${m.id})">✕</button>
+      </div>`;
+    }).join('');
+  }
+
+  // Overall chart
+  renderOverallChart();
+}
+
+function editMilestone(id) {
+  msEditId = id;
+  const m = STATE.milestones.find(x => x.id === id);
+  document.getElementById('msModalTitle').textContent = 'Edit Milestone';
+  document.getElementById('msWt').value = m.wt;
+  document.getElementById('msDate').value = m.date;
+  openModal('milestoneModal');
+}
+function deleteMilestone(id) {
+  if (!confirm('Remove milestone?')) return;
+  STATE.milestones = STATE.milestones.filter(x => x.id !== id);
+  save();
+  renderOverallTab();
+}
+
+function renderOverallChart() {
+  if (overallChartInst) overallChartInst.destroy();
+  const ctx = document.getElementById('overallChart').getContext('2d');
+  
+  if (!STATE.currentWt || !STATE.finalGoal || STATE.milestones.length === 0) {
+    overallChartInst = new Chart(ctx, {
+      type: 'line',
+      data: { labels: ['Set goals & milestones'], datasets: [{ data: [STATE.currentWt||0], borderColor:'#2a2c30' }] },
+      options: { plugins: { legend:{display:false} }, scales: { x:{ticks:{color:'#3d4047'}}, y:{ticks:{color:'#3d4047'}} } }
+    });
+    return;
+  }
+
+  const today = todayStr();
+  const pts = [{ date: today, wt: STATE.currentWt }];
+  STATE.milestones.forEach(m => pts.push({ date: m.date, wt: m.wt }));
+  pts.sort((a,b) => a.date > b.date ? 1 : -1);
+
+  // Actual weight from weekWeights
+  const actualDates = Object.keys(STATE.weekWeights).sort();
+  const actualWts = actualDates.map(d => STATE.weekWeights[d]?.wt || null);
+
+  overallChartInst = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: pts.map(p => fmtDate(p.date)),
+      datasets: [
+        {
+          label: 'Target',
+          data: pts.map(p => p.wt),
+          borderColor: '#4ecf88',
+          backgroundColor: 'rgba(78,207,136,0.06)',
+          tension: 0.3,
+          pointBackgroundColor: '#4ecf88',
+          pointRadius: 5
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { ticks: { color: '#6b6f76', font: { size: 9 }, maxRotation: 30 }, grid: { color: '#2a2c30' } },
+        y: { ticks: { color: '#4ecf88', font: { size: 10 } }, grid: { color: '#2a2c3055' } }
+      }
+    }
+  });
+}
+
+// ══════════════════════════════════════
+// MODALS
+// ══════════════════════════════════════
+function openModal(id) {
+  document.getElementById(id).classList.add('open');
+}
+function closeModal(id) {
+  document.getElementById(id).classList.remove('open');
+}
+document.querySelectorAll('.modal-overlay').forEach(el => {
+  el.addEventListener('click', function(e) {
+    if (e.target === this) closeModal(this.id);
+  });
+});
+
+// ══════════════════════════════════════
+// TOPBAR DATE
+// ══════════════════════════════════════
+function updateTopbar() {
+  const now = new Date();
+  document.getElementById('topbarDate').textContent = now.toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'});
+}
+
+// ══════════════════════════════════════
+// INIT
+// ══════════════════════════════════════
+load();
+updateTopbar();
+currentCalMonth = new Date();
+
+// Load saved title
+if (STATE.trackerTitle) document.getElementById('trackerTitle').value = STATE.trackerTitle;
+
+// Calendar toggle
+let calOpen = false;
+function toggleCal() {
+  calOpen = !calOpen;
+  document.getElementById('calBody').style.display = calOpen ? 'block' : 'none';
+  document.getElementById('calChevron').style.transform = calOpen ? 'rotate(90deg)' : 'rotate(0deg)';
+}
+
+// Update the collapsed label to show selected date
+function updateCalLabel() {
+  const d = new Date(selectedDate + 'T00:00:00');
+  const isToday = selectedDate === todayStr();
+  document.getElementById('calSelectedDisplay').textContent =
+    isToday ? 'Today' : d.toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'});
+}
+
+// Save title
+function saveTitle() {
+  STATE.trackerTitle = document.getElementById('trackerTitle').value || 'TRACKER 2';
+  save();
+}
+
+renderCal();
+updateCalLabel();
+renderToday();
+
+// Patch selectDay to also update label
+const _origSelectDay = selectDay;
+window.selectDay = function(ds) {
+  if (hlMode) { openHlModal(ds); return; }
+  selectedDate = ds;
+  renderCal();
+  updateCalLabel();
+  renderToday();
+  // auto-close after picking a day
+  if (calOpen) toggleCal();
+};
+</script>
+</body>
+</html>
