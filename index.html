@@ -740,7 +740,7 @@ let STATE = JSON.parse(JSON.stringify(DEFAULTS));
 // ── Load from localStorage, then force-merge seed data ──
 function loadAndMerge() {
   const CURRENT_DATA_VERSION = 4;
-  // Always seed first — works even if localStorage is blocked/unavailable
+  // Always start with seed so app works even with no localStorage
   STATE.records = [...SEED_RECORDS];
   STATE.weekWeights = Object.assign({}, SEED_WEIGHTS);
   STATE.currentWt = 71.2;
@@ -749,7 +749,6 @@ function loadAndMerge() {
     const saved = localStorage.getItem('t2_state');
     if (saved) {
       const parsed = JSON.parse(saved);
-      // Restore only user-preference fields from localStorage
       STATE.fixed        = parsed.fixed        ?? DEFAULTS.fixed;
       STATE.burnGoal     = parsed.burnGoal     ?? DEFAULTS.burnGoal;
       STATE.intakeGoal   = parsed.intakeGoal   ?? DEFAULTS.intakeGoal;
@@ -761,11 +760,19 @@ function loadAndMerge() {
       STATE.targets      = parsed.targets      || [];
       STATE.weekGoals    = parsed.weekGoals    || DEFAULTS.weekGoals;
       STATE.trackerTitle = parsed.trackerTitle || DEFAULTS.trackerTitle;
-      // Merge user-added records (id > 9999) on top of seed
-      const userRecords = (parsed.records || []).filter(r => r.id > 9999);
-      STATE.records = [...SEED_RECORDS, ...userRecords];
-      // Seed weights always win, then user additions on top
-      STATE.weekWeights = Object.assign({}, parsed.weekWeights || {}, SEED_WEIGHTS);
+
+      const savedRecords = parsed.records || [];
+      // For each seed record: if user edited it (same id, different values), keep user version
+      // User-added records (id > 9999) always kept
+      const mergedRecords = SEED_RECORDS.map(seed => {
+        const userVer = savedRecords.find(r => r.id === seed.id);
+        return userVer || seed; // user version wins over seed
+      });
+      const userAdded = savedRecords.filter(r => r.id > 9999);
+      STATE.records = [...mergedRecords, ...userAdded];
+
+      // Weights: user edits win over seed (user knows their actual weight)
+      STATE.weekWeights = Object.assign({}, SEED_WEIGHTS, parsed.weekWeights || {});
     }
   } catch(e) {}
   save();
