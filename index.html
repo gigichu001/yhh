@@ -753,39 +753,61 @@
   </div>
 
   <div class="week-top">
-    <div class="week-kpi">
-      <div class="week-kpi-label">Week Aim</div>
-      <div class="week-kpi-value" id="weekAim" onclick="editWeekAim()">−2,100</div>
-      <div style="font-size:10px;color:var(--text-dim);margin-top:2px;">kcal deficit</div>
+    <div class="week-kpi" style="flex:1.3">
+      <div class="week-kpi-label">Week Deficit</div>
+      <div style="display:flex;align-items:baseline;gap:4px;flex-wrap:wrap;">
+        <span class="week-kpi-value" id="weekCurrent" style="color:var(--green)">0</span>
+        <span style="font-family:var(--font-mono);font-size:13px;color:var(--text-dim)">/</span>
+        <span class="week-kpi-value" id="weekAim" onclick="editWeekAim()" style="font-size:18px;color:var(--text-dim);cursor:pointer;" title="tap to edit">−2,100</span>
+      </div>
+      <div style="font-size:10px;color:var(--text-dim);margin-top:2px;">actual / target kcal</div>
     </div>
     <div class="week-kpi">
-      <div class="week-kpi-label">Current</div>
-      <div class="week-kpi-value green" id="weekCurrent">0</div>
-      <div style="font-size:10px;color:var(--text-dim);margin-top:2px;">kcal deficit</div>
-    </div>
-    <div class="week-kpi fat">
-      <div class="week-kpi-label">Body Fat</div>
-      <div class="week-kpi-value" id="weekFat" onclick="editWeekFat()">—%</div>
+      <div class="week-kpi-label">Days Left</div>
+      <div class="week-kpi-value" id="weekDaysLeft" style="color:var(--text);">—</div>
+      <div style="font-size:10px;color:var(--text-dim);margin-top:2px;">this week</div>
     </div>
   </div>
 
   <div class="chart-box">
-    <div class="chart-title" id="weekChartTitle">Weight & Fat % — This Week</div>
+    <div class="chart-title" id="weekChartTitle">Weight — This Week</div>
     <canvas id="weekChart" height="180"></canvas>
     <div class="week-legend">
       <div class="wleg"><div class="wleg-dot wt"></div> Weight (kg)</div>
-      <div class="wleg"><div class="wleg-dot fat"></div> Fat %</div>
-      <div class="wleg"><div class="wleg-dot ideal"></div> Ideal</div>
+      <div class="wleg"><div class="wleg-dot ideal"></div> Milestone target</div>
     </div>
   </div>
 
   <div class="chart-box">
     <div class="chart-title">Weekly Summary</div>
     <div class="week-summary">
-      <div class="ws-row"><span class="ws-label">Total Intake</span><span class="ws-val" id="wsTotalIntake">0 kcal</span></div>
-      <div class="ws-row"><span class="ws-label">Total Burn</span><span class="ws-val" id="wsTotalBurn">0 kcal</span></div>
-      <div class="ws-row"><span class="ws-label">Total Water</span><span class="ws-val" id="wsTotalWater">0 ml</span></div>
-      <div class="ws-row"><span class="ws-label">Net Deficit</span><span class="ws-val" id="wsNetDeficit" style="color:var(--green)">0 kcal</span></div>
+      <div class="ws-row">
+        <span class="ws-label">Food Intake</span>
+        <span class="ws-val">
+          <span id="wsTotalIntake">0</span>
+          <span style="color:var(--text-muted)"> / </span>
+          <span id="wsIntakeGoal" class="editable-goal" onclick="editWeekGoal('intake')" title="tap to edit">0</span>
+          <span style="font-size:10px;color:var(--text-dim)"> kcal</span>
+        </span>
+      </div>
+      <div class="ws-row">
+        <span class="ws-label">Exercise Burn</span>
+        <span class="ws-val">
+          <span id="wsTotalBurn">0</span>
+          <span style="color:var(--text-muted)"> / </span>
+          <span id="wsBurnGoal" class="editable-goal" onclick="editWeekGoal('burn')" title="tap to edit">0</span>
+          <span style="font-size:10px;color:var(--text-dim)"> kcal</span>
+        </span>
+      </div>
+      <div class="ws-row">
+        <span class="ws-label">Water</span>
+        <span class="ws-val">
+          <span id="wsTotalWater">0</span>
+          <span style="color:var(--text-muted)"> / </span>
+          <span id="wsWaterGoal" class="editable-goal" onclick="editWeekGoal('water')" title="tap to edit">0</span>
+          <span style="font-size:10px;color:var(--text-dim)"> ml</span>
+        </span>
+      </div>
     </div>
   </div>
 </div>
@@ -818,6 +840,11 @@
   <div class="overall-chart-box">
     <div class="chart-title">Weight Journey</div>
     <canvas id="overallChart" height="200"></canvas>
+    <div class="week-legend" style="margin-top:10px;">
+      <div class="wleg"><div class="wleg-dot wt"></div> Actual weight</div>
+      <div class="wleg"><div class="wleg-dot ideal"></div> Milestone target</div>
+      <div class="wleg"><div class="wleg-dot fat" style="background:#c97a3a;"></div> Body fat %</div>
+    </div>
   </div>
 
   <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:16px;">
@@ -2060,9 +2087,198 @@ function updateTopbar() {
 }
 
 // ══════════════════════════════════════
+// SEED DATA (runs only if no saved data)
+// ══════════════════════════════════════
+function injectSeedData() {
+  let id = 1000;
+  const mk = (date, type, name, kcal) => ({ id: id++, date, type, name, kcal });
+
+  const records = [
+    // May 15
+    mk('2025-05-15','exercise','Run 63min / 5.27km',350),
+    mk('2025-05-15','food','Spicy chicken rice',1000),
+    mk('2025-05-15','food','Seafood don',750),
+    mk('2025-05-15','food','No sugar soy milk',0),
+
+    // May 16
+    mk('2025-05-16','food','Seafood don + chicken breast ×1',400),
+    mk('2025-05-16','food','Chicken breast ×2 + ramen',970),
+
+    // May 17
+    mk('2025-05-17','exercise','Run 127min / 11.1km',750),
+    mk('2025-05-17','food','Chicken breast ×3',330),
+    mk('2025-05-17','food','Scallop prawn miso soup',470),
+    mk('2025-05-17','food','Yum cha + dessert',810),
+    mk('2025-05-17','food','Ice cream',100),
+
+    // May 18
+    mk('2025-05-18','food','Super light cookie',20),
+    mk('2025-05-18','food','Black pepper beef + coconut latte',950),
+    mk('2025-05-18','food','Croissant + seafood miso',1155),
+
+    // May 19
+    mk('2025-05-19','exercise','Run 112min / 10km',700),
+    mk('2025-05-19','food','Super light cookie',20),
+    mk('2025-05-19','food','Prawn noodles',660),
+    mk('2025-05-19','food','Chicken breast + seafood miso',470),
+    mk('2025-05-19','food','Juice',165),
+
+    // May 20
+    mk('2025-05-20','food','Digestive + snacks',290),
+    mk('2025-05-20','food','Curry prawn rice',550),
+    mk('2025-05-20','food','Chicken breast ×2',220),
+    mk('2025-05-20','food','No sugar soy milk',220),
+
+    // May 21
+    mk('2025-05-21','exercise','Run 75min / 5.27km',150),
+    mk('2025-05-21','food','Sushi',650),
+    mk('2025-05-21','food','Chicken breast ×2 + onigiri',390),
+
+    // May 22
+    mk('2025-05-22','food','Digestive',210),
+    mk('2025-05-22','food','Fish & chips salad ver',900),
+    mk('2025-05-22','food','Chocolate fruit croissant',700),
+
+    // May 23
+    mk('2025-05-23','food','Apple danish',450),
+    mk('2025-05-23','food','Chicken breast ×2',206),
+    mk('2025-05-23','food','Chicken breast ×2 + chips',700),
+    mk('2025-05-23','food','Mango monster',132),
+
+    // May 24
+    mk('2025-05-24','exercise','Run 60min / 4.5km',300),
+    mk('2025-05-24','food','Mango mint sparkling water',200),
+    mk('2025-05-24','food','Salmon sushi ×10 + uni + fish balls',720),
+    mk('2025-05-24','food','Uni, fish balls, kai, chicken breast ×2',370),
+    mk('2025-05-24','food','Mango monster',173),
+
+    // May 25
+    mk('2025-05-25','exercise','Run 78min / 6.66km',400),
+    mk('2025-05-25','food','Chicken breast ×1.5',165),
+    mk('2025-05-25','food','Curry pork rice + honey tea',900),
+    mk('2025-05-25','food','Miso + chicken breast',450),
+    mk('2025-05-25','food','Jelly',56),
+
+    // May 26
+    mk('2025-05-26','food','Noodles',500),
+    mk('2025-05-26','food','Black pepper rice',800),
+    mk('2025-05-26','food','Chicken breast ×2',220),
+    mk('2025-05-26','food','Jelly',176),
+
+    // May 27
+    mk('2025-05-27','exercise','Run 130min / 11km',600),
+    mk('2025-05-27','food','Chicken breast ×2',220),
+    mk('2025-05-27','food','Lychee + shrimp',345),
+    mk('2025-05-27','food','Sushi',580),
+    mk('2025-05-27','food','Jelly',81),
+
+    // May 28
+    mk('2025-05-28','food','Beef noodle',350),
+    mk('2025-05-28','food','Seafood + beer + chicken breast + fruit',691),
+    mk('2025-05-28','food','Dark choco mocha blended',500),
+
+    // May 29
+    mk('2025-05-29','exercise','Run 60min / 5km',295),
+    mk('2025-05-29','food','Ho fun + green tea',605),
+    mk('2025-05-29','food','Curry rice',850),
+    mk('2025-05-29','food','Mango ×2',10),
+
+    // May 30
+    mk('2025-05-30','food','Chicken breast ×2 + banana',320),
+    mk('2025-05-30','food','Vege vermicelli + chicken breast + milk',725),
+
+    // May 31
+    mk('2025-05-31','exercise','Run 66min / 5.63km',390),
+    mk('2025-05-31','exercise','Run 57min / 4.47km',380),
+    mk('2025-05-31','food','Egg soup + chicken breast ×2',289),
+    mk('2025-05-31','food','Sushi',596),
+    mk('2025-05-31','food','Scallop, dress and chips',520),
+
+    // Jun 1
+    mk('2025-06-01','exercise','Run 126min / 10km',616),
+    mk('2025-06-01','food','Chicken breast ×2',220),
+    mk('2025-06-01','food','Sushi and cake',1100),
+    mk('2025-06-01','food','Scallop dress',186),
+
+    // Jun 2
+    mk('2025-06-02','exercise','Light weight training',0),
+    mk('2025-06-02','food','Donkatsu don + no sugar milk tea',720),
+    mk('2025-06-02','food','Seafood',423),
+    mk('2025-06-02','food','Makgeolli',120),
+
+    // Jun 3
+    mk('2025-06-03','exercise','Run 58min / 5.08km',265),
+    mk('2025-06-03','exercise','Run 60min / 5km',250),
+    mk('2025-06-03','food','Ban mee + siu mai + ice lemon tea',1033),
+    mk('2025-06-03','food','Seafood avocado',650),
+
+    // Jun 4
+    mk('2025-06-04','food','Salmon beef don + coffee frappe',935),
+    mk('2025-06-04','food','Seafood',450),
+    mk('2025-06-04','food','Snack from Kat',165),
+
+    // Jun 5
+    mk('2025-06-05','food','Sushiro',1020),
+    mk('2025-06-05','food','Chicken breast ×3',330),
+    mk('2025-06-05','food','Ice latte oat pistachio + cheese + wine',500),
+
+    // Jun 6
+    mk('2025-06-06','food','Chips + forgot',1000),
+    mk('2025-06-06','food','Chicken + salmon',320),
+
+    // Jun 7
+    mk('2025-06-07','exercise','Run 120min / 10km',700),
+    mk('2025-06-07','food','Coffee',150),
+    mk('2025-06-07','food','Chicken breast + milk',463),
+    mk('2025-06-07','food','Fish balls + shrimp',780),
+    mk('2025-06-07','food','清熱酷',40),
+
+    // Jun 8
+    mk('2025-06-08','food','Chicken breast + 1 fish ball',150),
+    mk('2025-06-08','food','川菜 + 無糖豆漿',800),
+    mk('2025-06-08','food','Chicken breast',110),
+    mk('2025-06-08','food','Caramel',60),
+  ];
+
+  const weekWeights = {
+    '2025-05-15': { wt: 75.2, fat: 35.9 },
+    '2025-05-17': { wt: 74.8 },
+    '2025-05-19': { wt: 73.7 },
+    '2025-05-20': { wt: 75.0 },
+    '2025-05-21': { wt: 73.7, fat: 35.7 },
+    '2025-05-22': { wt: 73.7, fat: 34.7 },
+    '2025-05-23': { wt: 73.4, fat: 34.9 },
+    '2025-05-24': { wt: 73.1, fat: 35.1 },
+    '2025-05-25': { wt: 72.9, fat: 35.2 },
+    '2025-05-26': { wt: 73.0, fat: 35.3 },
+    '2025-05-27': { wt: 73.2, fat: 35.3 },
+    '2025-05-28': { wt: 72.8, fat: 34.8 },
+    '2025-05-29': { wt: 72.9, fat: 34.6 },
+    '2025-05-30': { wt: 72.9, fat: 34.7 },
+    '2025-05-31': { wt: 72.0, fat: 34.4 },
+    '2025-06-02': { wt: 72.8, fat: 34.7 },
+    '2025-06-03': { wt: 72.6, fat: 34.1 },
+    '2025-06-04': { wt: 73.0, fat: 34.3 },
+    '2025-06-05': { wt: 72.6, fat: 34.4 },
+    '2025-06-07': { wt: 71.8, fat: 34.2 },
+    '2025-06-08': { wt: 71.6, fat: 33.7 },
+  };
+
+  STATE.records = records;
+  STATE.weekWeights = weekWeights;
+  STATE.currentWt = 71.6;
+  STATE.weekFat = 33.7;
+  save();
+}
+
+// ══════════════════════════════════════
 // INIT
 // ══════════════════════════════════════
 load();
+// Only inject seed if app has never been used
+if (STATE.records.length === 0 && Object.keys(STATE.weekWeights).length === 0) {
+  injectSeedData();
+}
 updateTopbar();
 currentCalMonth = new Date();
 
