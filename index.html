@@ -317,9 +317,9 @@
       <div style="font-size:10px;color:var(--text-dim);margin-top:2px;">actual / target kcal</div>
     </div>
     <div class="week-kpi">
-      <div class="week-kpi-label">Days Left</div>
-      <div class="week-kpi-value" id="weekDaysLeft">—</div>
-      <div style="font-size:10px;color:var(--text-dim);margin-top:2px;">this week</div>
+      <div class="week-kpi-label">Avg Weight</div>
+      <div class="week-kpi-value" id="weekDaysLeft" style="color:var(--accent2);">—</div>
+      <div style="font-size:10px;color:var(--text-dim);margin-top:2px;">kg this week</div>
     </div>
   </div>
 
@@ -1138,8 +1138,12 @@ function renderWeekTab() {
   document.getElementById('weekRangeLabel').textContent = isCurrentWeek ? 'This Week · '+rangeStr : rangeStr;
 
   const doneDates = isPastWeek ? dates : dates.filter(d => d <= today);
-  const daysLeft  = isCurrentWeek ? dates.filter(d => d > today).length : 0;
-  document.getElementById('weekDaysLeft').textContent = isCurrentWeek ? daysLeft+'d' : '—';
+  const wtDatesThisWeek = dates.filter(d => STATE.weekWeights[d]?.wt);
+  const avgWt = wtDatesThisWeek.length > 0
+    ? (wtDatesThisWeek.reduce((s,d) => s + STATE.weekWeights[d].wt, 0) / wtDatesThisWeek.length).toFixed(1)
+    : null;
+  document.getElementById('weekDaysLeft').textContent = avgWt ? avgWt + ' kg' : '—';
+  document.getElementById('weekDaysLeft').style.color = 'var(--accent2)';
 
   let totalIntake=0, totalBurn=0, totalWater=0;
   doneDates.forEach(d => {
@@ -1440,14 +1444,13 @@ function renderOverallChart() {
     data:{
       labels,
       datasets:[
-        {label:'Actual Weight', data:actualLine, borderColor:'#4a9eff', backgroundColor:'rgba(74,158,255,0.07)',
-         tension:0.3, pointRadius:2, pointHoverRadius:4, spanGaps:true, yAxisID:'y'},
-        {label:'Target / Milestones', data:targetLine, borderColor:'#4ecf88', borderDash:[6,4],
-         backgroundColor:'transparent', tension:0.3,
-         pointRadius: allDates.map(d=>targetPts.find(p=>p.date===d)?4:0),
-         spanGaps:true, yAxisID:'y'},
+        {label:'Actual Weight', data:actualLine, borderColor:'#4a9eff', backgroundColor:'rgba(74,158,255,0.06)',
+         borderWidth:1.5, tension:0.4, pointRadius:0, pointHoverRadius:3, spanGaps:true, yAxisID:'y'},
+        {label:'Target', data:targetLine, borderColor:'#4ecf88', borderDash:[5,4],
+         backgroundColor:'transparent', borderWidth:1.2, tension:0.4,
+         pointRadius:0, pointHoverRadius:0, spanGaps:true, yAxisID:'y'},
         {label:'Body Fat %', data:fatLine, borderColor:'#c97a3a', backgroundColor:'transparent',
-         tension:0.3, pointRadius:2, pointHoverRadius:3, spanGaps:true, yAxisID:'y1'}
+         borderWidth:1.5, tension:0.4, pointRadius:0, pointHoverRadius:3, spanGaps:true, yAxisID:'y1'}
       ]
     },
     options:{
