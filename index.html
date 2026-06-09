@@ -1398,7 +1398,23 @@ function renderOverallChart() {
   }
   targetPts.sort((a,b)=>a.date>b.date?1:-1);
 
-  const allDates = [...new Set([...allWtDates, ...targetPts.map(p=>p.date)])].sort();
+  // X axis: always start May 15, end at last milestone date (or last weight if no milestones)
+  const X_START = '2026-05-15';
+  const lastMsDate = STATE.milestones.length ? STATE.milestones[STATE.milestones.length-1].date : null;
+  const X_END = lastMsDate || allWtDates[allWtDates.length-1] || todayStr();
+
+  // Build a full daily date range from X_START to X_END for smooth continuous x axis
+  const allDatesSet = new Set([...allWtDates, ...targetPts.map(p=>p.date)]);
+  // Add daily spine from start to end so x axis is evenly spaced
+  let spine = [];
+  let cur = new Date(X_START+'T00:00:00'), endD = new Date(X_END+'T00:00:00');
+  while (cur <= endD) {
+    spine.push(cur.toISOString().slice(0,10));
+    cur.setDate(cur.getDate()+1);
+  }
+  // Merge: spine gives even spacing, actual data points are within it
+  const allDates = [...new Set([...spine, ...allDatesSet])].sort()
+    .filter(d => d >= X_START && d <= X_END);
   const labels   = allDates.map(d => fmtDate(d));
 
   const actualLine = allDates.map(d => STATE.weekWeights[d]?.wt ?? null);
@@ -1442,7 +1458,7 @@ function renderOverallChart() {
         tooltip:{callbacks:{label:c=>c.parsed.y!==null?c.dataset.label+': '+c.parsed.y+(c.datasetIndex===2?'%':' kg'):null}}
       },
       scales:{
-        x:{ticks:{color:'#7a6a56',font:{size:9},maxRotation:35},grid:{color:'rgba(0,0,0,0.05)'}},
+        x:{ticks:{color:'#7a6a56',font:{size:9},maxRotation:35,maxTicksLimit:10},grid:{color:'rgba(0,0,0,0.04)'}},
         y:{position:'left',min:55,max:78,ticks:{color:'#7a6a56',font:{size:10}},grid:{color:'rgba(0,0,0,0.05)'},
            title:{display:true,text:'kg',color:'#7a6a56',font:{size:9}}},
         y1:{position:'right',min:25,max:38,ticks:{color:'#c97a3a',font:{size:10}},grid:{display:false},
