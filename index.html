@@ -778,8 +778,56 @@ function loadAndMerge() {
   save();
 }
 
+// ── Google Sheets sync ──
+const GS_URL = 'https://script.google.com/macros/s/AKfycbx6NttMCxKb_DHgVT3R5bwII5RQICeB7qPtSL2fSomaezwzuRlbifonx9-bE59yQyrNNQ/exec'; // paste your deployed Apps Script URL here
+
+function syncToSheet() {
+  if (!GS_URL) return;
+  const payload = JSON.stringify(STATE);
+  fetch(GS_URL, {
+    method: 'POST',
+    body: JSON.stringify({ key: 't2_state', value: payload }),
+    headers: { 'Content-Type': 'text/plain' }
+  }).catch(() => {});
+}
+
+async function loadFromSheet() {
+  if (!GS_URL) return false;
+  try {
+    const res = await fetch(GS_URL + '?key=t2_state');
+    const json = await res.json();
+    if (json.ok && json.value) {
+      const parsed = JSON.parse(json.value);
+      // same merge logic as loadAndMerge but from sheet
+      STATE.fixed        = parsed.fixed        ?? STATE.fixed;
+      STATE.burnGoal     = parsed.burnGoal     ?? STATE.burnGoal;
+      STATE.intakeGoal   = parsed.intakeGoal   ?? STATE.intakeGoal;
+      STATE.waterGoal    = parsed.waterGoal    ?? STATE.waterGoal;
+      STATE.finalGoal    = parsed.finalGoal    ?? STATE.finalGoal;
+      STATE.weekAim      = parsed.weekAim      ?? STATE.weekAim;
+      STATE.highlights   = parsed.highlights   || STATE.highlights;
+      STATE.milestones   = parsed.milestones   || STATE.milestones;
+      STATE.targets      = parsed.targets      || STATE.targets;
+      STATE.weekGoals    = parsed.weekGoals    || STATE.weekGoals;
+      STATE.trackerTitle = parsed.trackerTitle || STATE.trackerTitle;
+      const savedRecords = parsed.records || [];
+      const mergedRecords = SEED_RECORDS.map(seed => {
+        const userVer = savedRecords.find(r => r.id === seed.id);
+        return userVer || seed;
+      });
+      const userAdded = savedRecords.filter(r => r.id > 9999);
+      STATE.records = [...mergedRecords, ...userAdded];
+      STATE.weekWeights = Object.assign({}, SEED_WEIGHTS, parsed.weekWeights || {});
+      save();
+      return true;
+    }
+  } catch(e) {}
+  return false;
+}
+
 function save() {
   try { localStorage.setItem('t2_state', JSON.stringify(STATE)); } catch(e) {}
+  syncToSheet();
 }
 
 function todayStr() {
@@ -1620,12 +1668,20 @@ function saveTitle() {
 loadAndMerge();
 document.getElementById('trackerTitle').value = STATE.trackerTitle || 'TRACKER 2';
 updateTopbar();
-// Always start on today — never restore a stale selectedDate from localStorage
 selectedDate = todayStr();
 currentCalMonth = new Date();
 renderCal();
 updateCalLabel();
 renderToday();
+// Try loading from Google Sheet — if found, re-render with cloud data
+if (GS_URL) {
+  loadFromSheet().then(loaded => {
+    if (loaded) {
+      document.getElementById('trackerTitle').value = STATE.trackerTitle || 'TRACKER 2';
+      renderCal(); updateCalLabel(); renderToday();
+    }
+  });
+}
 </script>
 </body>
 </html>
