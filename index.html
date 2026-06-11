@@ -287,7 +287,7 @@
     </div>
     <div class="mini-block water">
       <div class="mini-label">Water</div>
-      <div class="mini-values"><span class="cur" id="waterCur">0</span><span class="sep"> / </span><span class="goal editable-goal" id="waterGoal" onclick="editGoalInline('water')">2000</span><span style="font-size:9px;color:var(--text-dim)">ml</span></div>
+      <div class="mini-values"><span class="cur" id="waterCur">0</span><span class="sep"> / </span><span class="goal editable-goal" id="waterGoal" onclick="editGoalInline('water')">2000</span></div>
     </div>
   </div>
 
@@ -740,7 +740,6 @@ let STATE = JSON.parse(JSON.stringify(DEFAULTS));
 // ── Load from localStorage, then force-merge seed data ──
 function loadAndMerge() {
   const CURRENT_DATA_VERSION = 4;
-  // Always start with seed so app works even with no localStorage
   STATE.records = [...SEED_RECORDS];
   STATE.weekWeights = Object.assign({}, SEED_WEIGHTS);
   STATE.currentWt = 71.2;
@@ -762,16 +761,13 @@ function loadAndMerge() {
       STATE.trackerTitle = parsed.trackerTitle || DEFAULTS.trackerTitle;
 
       const savedRecords = parsed.records || [];
-      // For each seed record: if user edited it (same id, different values), keep user version
-      // User-added records (id > 9999) always kept
       const mergedRecords = SEED_RECORDS.map(seed => {
         const userVer = savedRecords.find(r => r.id === seed.id);
-        return userVer || seed; // user version wins over seed
+        return userVer || seed;
       });
       const userAdded = savedRecords.filter(r => r.id > 9999);
       STATE.records = [...mergedRecords, ...userAdded];
 
-      // Weights: user edits win over seed (user knows their actual weight)
       STATE.weekWeights = Object.assign({}, SEED_WEIGHTS, parsed.weekWeights || {});
     }
   } catch(e) {}
@@ -779,7 +775,7 @@ function loadAndMerge() {
 }
 
 // ── Google Sheets sync ──
-const GS_URL = 'https://script.google.com/macros/s/AKfycbx6NttMCxKb_DHgVT3R5bwII5RQICeB7qPtSL2fSomaezwzuRlbifonx9-bE59yQyrNNQ/exec'; // paste your deployed Apps Script URL here
+const GS_URL = 'https://script.google.com/macros/s/AKfycbx6NttMCxKb_DHgVT3R5bwII5RQICeB7qPtSL2fSomaezwzuRlbifonx9-bE59yQyrNNQ/exec';
 
 function syncToSheet() {
   if (!GS_URL) return;
@@ -798,7 +794,6 @@ async function loadFromSheet() {
     const json = await res.json();
     if (json.ok && json.value) {
       const parsed = JSON.parse(json.value);
-      // same merge logic as loadAndMerge but from sheet
       STATE.fixed        = parsed.fixed        ?? STATE.fixed;
       STATE.burnGoal     = parsed.burnGoal     ?? STATE.burnGoal;
       STATE.intakeGoal   = parsed.intakeGoal   ?? STATE.intakeGoal;
@@ -919,7 +914,6 @@ function selectDay(ds) {
   if (hlMode) { openHlModal(ds); return; }
   selectedDate = ds;
   renderCal(); updateCalLabel(); renderToday();
-  // close cal then scroll to records so user sees the data
   if (calOpen) toggleCal();
   setTimeout(function() {
     var el = document.getElementById('historyDateLabel');
@@ -1033,7 +1027,6 @@ function submitAdd() {
   const kcal = parseFloat(document.getElementById('addKcal').value)||0;
   const date = document.getElementById('addDate').value;
   if (!name) { document.getElementById('addName').focus(); return; }
-  // User records get id > 9999 so they're preserved across seed merges
   STATE.records.push({id: Date.now()+Math.floor(Math.random()*1000)+10000, date, type:addType, name, kcal});
   save(); closeModal('addModal'); renderToday();
   if (currentTab==='week') renderWeekTab();
@@ -1109,6 +1102,7 @@ let weekWtDate = '';
 function weekNav(dir) { weekOffset += dir; renderWeekTab(); }
 function weekNavToday() { weekOffset = 0; renderWeekTab(); }
 
+// FIX: use local date formatting instead of toISOString() to avoid UTC timezone shift
 function getWeekDates() {
   const today = new Date();
   const day = today.getDay();
@@ -1116,7 +1110,7 @@ function getWeekDates() {
   monday.setDate(today.getDate() - ((day+6)%7) + weekOffset*7);
   return Array.from({length:7},(_,i) => {
     const d = new Date(monday); d.setDate(monday.getDate()+i);
-    return d.toISOString().slice(0,10);
+    return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
   });
 }
 
@@ -1219,7 +1213,6 @@ function renderWeekTab() {
   document.getElementById('wsBurnGoal').textContent   = (wg.burn||3500).toLocaleString();
   document.getElementById('wsWaterGoal').textContent  = (wg.water||14000).toLocaleString();
 
-  // Weight only — NO fat line in week chart
   const wtData = dates.map(d => STATE.weekWeights[d]?.wt ?? null);
   const idealData = buildIdealWeekLine(dates);
   const chartLabels = dates.map((d,i) => dayLabels[i]+' '+new Date(d+'T00:00:00').getDate());
@@ -1378,7 +1371,6 @@ function savePastWeight() {
 }
 
 function renderOverallTab() {
-  // Current weight = latest logged weight on or before today
   const today = todayStr();
   const loggedDates = Object.keys(STATE.weekWeights)
     .filter(d => STATE.weekWeights[d]?.wt && d <= today).sort();
@@ -1393,7 +1385,6 @@ function renderOverallTab() {
   const pdInput = document.getElementById('pastWtDate');
   if (!pdInput.value) pdInput.value = todayStr();
 
-  // Mark milestones done
   if (latestWt && STATE.finalGoal) {
     STATE.milestones.forEach(m => {
       const goingDown = STATE.finalGoal < latestWt;
@@ -1441,7 +1432,6 @@ function renderOverallChart() {
     return;
   }
 
-  // Target line anchors
   let targetPts = [];
   if (allWtDates.length) targetPts.push({date:allWtDates[0], wt:STATE.weekWeights[allWtDates[0]].wt});
   STATE.milestones.forEach(m => targetPts.push({date:m.date, wt:m.wt}));
@@ -1453,21 +1443,17 @@ function renderOverallChart() {
   }
   targetPts.sort((a,b)=>a.date>b.date?1:-1);
 
-  // X axis: always start May 15, end at last milestone date (or last weight if no milestones)
   const X_START = '2026-05-15';
   const lastMsDate = STATE.milestones.length ? STATE.milestones[STATE.milestones.length-1].date : null;
   const X_END = lastMsDate || allWtDates[allWtDates.length-1] || todayStr();
 
-  // Build a full daily date range from X_START to X_END for smooth continuous x axis
   const allDatesSet = new Set([...allWtDates, ...targetPts.map(p=>p.date)]);
-  // Add daily spine from start to end so x axis is evenly spaced
   let spine = [];
   let cur = new Date(X_START+'T00:00:00'), endD = new Date(X_END+'T00:00:00');
   while (cur <= endD) {
-    spine.push(cur.toISOString().slice(0,10));
+    spine.push(cur.getFullYear()+'-'+String(cur.getMonth()+1).padStart(2,'0')+'-'+String(cur.getDate()).padStart(2,'0'));
     cur.setDate(cur.getDate()+1);
   }
-  // Merge: spine gives even spacing, actual data points are within it
   const allDates = [...new Set([...spine, ...allDatesSet])].sort()
     .filter(d => d >= X_START && d <= X_END);
   const labels   = allDates.map(d => fmtDate(d));
@@ -1575,7 +1561,10 @@ function saveTarget() {
     const from=document.getElementById('tgtFrom').value, to=document.getElementById('tgtTo').value;
     if(!from||!to) return;
     let cur=new Date(from+'T00:00:00'), end=new Date(to+'T00:00:00');
-    while(cur<=end){dates.push(cur.toISOString().slice(0,10));cur.setDate(cur.getDate()+1);}
+    while(cur<=end){
+      dates.push(cur.getFullYear()+'-'+String(cur.getMonth()+1).padStart(2,'0')+'-'+String(cur.getDate()).padStart(2,'0'));
+      cur.setDate(cur.getDate()+1);
+    }
   } else { dates=[...tgtPickedDates]; }
   if (!dates.length) return;
   if (editingTargetId) {
@@ -1673,7 +1662,6 @@ currentCalMonth = new Date();
 renderCal();
 updateCalLabel();
 renderToday();
-// Try loading from Google Sheet — if found, re-render with cloud data
 if (GS_URL) {
   loadFromSheet().then(loaded => {
     if (loaded) {
